@@ -97,6 +97,10 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .empty{padding:28px 12px;text-align:center;color:var(--muted)}
 .empty p{margin:8px 0}.empty b{color:var(--text)}
 .empty .btn{margin-left:6px;border-color:var(--accent2)}
+.afl{color:var(--accent)}
+.warn{color:var(--accent)}.bad{color:#ff7b7b;font-weight:600}
+.notice .hint{display:inline-block;margin:2px 10px 2px 0}
+.notice .btn{padding:3px 10px;margin-left:4px;color:var(--text)}
 .notice{margin-top:10px;padding:8px 12px;border-radius:8px;background:#3a2f12;border:1px solid #7d6c24;color:#ffe27a;font-size:13px}
 .more{display:flex;justify-content:center;margin:18px 0}
 footer{max-width:1280px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:12px}
@@ -369,7 +373,10 @@ function explain(){
     if(n) out.push({act:'q', text:`${n} Pokémon match without the name box text.`, btn:'Clear name box'});
   }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
-  if(S.balls.size<BALL_ORDER.length){ const n = run(cl({balls:new Set(BALL_ORDER)})).length; if(n) out.push({act:'balls', text:`${n} Pokémon match with all balls ticked.`, btn:'Tick all balls'}); }
+  if(S.balls.size<BALL_ORDER.length){
+    const r = run(cl({balls:new Set(BALL_ORDER)}));
+    if(r.length){ const hid = BALL_ORDER.filter(b=>r.some(x=>x.m.ball===b) && !S.balls.has(b));
+      out.push({act:'balls', text:`${r.length} Pokémon match${S.skills.length?' '+esc(names):''}, but only as <b>${hid.map(esc).join(' / ')}</b>, which your <b>Ball</b> filter is hiding.`, btn:'Tick all balls'}); } }
   if(S.mode==='all' && S.skills.length>1){ const n = run(cl({mode:'any'})).length; if(n) out.push({act:'any', text:`No Pokémon has all of these skills, but ${n} have at least one.`, btn:'Switch to “Has any”'}); }
   return out;
 }
@@ -379,14 +386,23 @@ function render(){
   current = run();
   const total = current.length;
   const shown = Math.min(S.shown, total);
-  $('notice').textContent = notice; $('notice').hidden = !notice;
-  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>${(S.min>1||S.max<MAX_LV||S.top)?' (level filter on)':''}` : '');
+  const nz = $('notice');
+  const af = []; 
+  if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
+  if(S.skills.length && S.top) af.push('top level only');
+  if(S.q.trim()) af.push(`name “${esc(S.q.trim())}”`);
+  if(S.type) af.push(`type ${esc(S.type)}`);
+  if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
+  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '');
   $('results').innerHTML = total ? current.slice(0,shown).map(card).join('') : '';
   if(!total){
     const hints = explain();
+    const top = hints.map(h=>`<span class="hint">${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></span>`).join('');
+    nz.innerHTML = '<b>0 results.</b> ' + (top || 'Try removing a filter or pressing “Reset all”.'); nz.hidden = false;
     $('results').innerHTML = '<div class="empty" style="grid-column:1/-1"><p><b>No Pokémon match these filters.</b></p>' +
       (hints.length ? hints.map(h=>`<p>${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></p>`).join('') : '<p>Try removing a filter or pressing “Reset all”.</p>') + '</div>';
   }
+  if(total){ nz.textContent = notice; nz.hidden = !notice; }
   $('more').hidden = shown>=total;
   $('more').textContent = `Show more (${total-shown} left)`;
   renderChips(); syncControls(); saveHash();
@@ -429,8 +445,12 @@ function openList(){
   sel = listItems.length ? 0 : -1;
   const ul = $('skillList');
   const none = SKILL_NAMES.some(s=>S.skills.includes(s) && skillScore(t,s)>=0) ? 'Already selected' : 'No matching skill';
-  ul.innerHTML = listItems.length ? listItems.map((s,i)=>`<li role="option" data-skill="${esc(s)}" aria-selected="${i===sel}"><span>${esc(s)} ${tag(s)}</span><span class="n">${SKILLS[s].count} Pokémon · ${lvText(s)}</span></li>`).join('') : `<li style="cursor:default;color:var(--muted)">${none}</li>`;
+  ul.innerHTML = listItems.length ? listItems.map((s,i)=>`<li role="option" data-skill="${esc(s)}" aria-selected="${i===sel}"><span>${esc(s)} ${tag(s)}</span><span class="n">${skillCountText(s)}</span></li>`).join('') : `<li style="cursor:default;color:var(--muted)">${none}</li>`;
   ul.hidden = false; $('skillInput').setAttribute('aria-expanded','true');
+}
+function skillCountText(s){
+  const n = run(Object.assign({}, S, {skills:[s], mode:'all'})).length, tot = SKILLS[s].count;
+  return n===tot ? `${tot} Pokémon · ${lvText(s)}` : `<span class="${n?'warn':'bad'}">${n} of ${tot} with your filters</span> · ${lvText(s)}`;
 }
 function closeList(){ $('skillList').hidden = true; $('skillInput').setAttribute('aria-expanded','false'); }
 function moveSel(d){
@@ -468,7 +488,7 @@ function bind(){
   $('skillList').addEventListener('mousedown', e=>{ const li=e.target.closest('li[data-skill]'); if(li){ e.preventDefault(); addSkill(li.dataset.skill); } });
   document.addEventListener('click', e=>{ if(!e.target.closest('.picker')) closeList(); });
   $('chips').addEventListener('click', e=>{ const b=e.target.closest('[data-rm]'); if(b) removeSkill(b.dataset.rm); });
-  $('results').addEventListener('click', e=>{
+  document.addEventListener('click', e=>{
     const b = e.target.closest('[data-act]'); if(!b) return;
     const a = b.dataset.act; S.shown = PAGE;
     if(a==='lv'){ S.min=1; S.max=MAX_LV; S.top=false; }
