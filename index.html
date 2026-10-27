@@ -74,7 +74,6 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .b-ultra{background:#4d4318;color:#ffe27a;border-color:#7d6c24}
 .b-master{background:#3b1f55;color:#d9a8ff;border-color:#62338f}
 .b-beast{background:#1d4a46;color:#7ff0e0;border-color:#2e7a73}
-.easy{font-size:11px;padding:2px 8px;border-radius:999px;background:#1f3a24;color:#8ee29a;border:1px solid #2f6a39}
 .how{font-size:12px;color:var(--muted);margin-bottom:6px}
 .moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
 .moves li{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 6px;border-radius:6px;font-size:13px}
@@ -162,10 +161,6 @@ footer p{margin:6px 0}
         <div class="balls" id="balls"></div>
       </div>
       <div class="field">
-        <span class="lbl">&nbsp;</span>
-        <label class="chk" title="Pokémon whose whole evolution line starts from a Poke Ball / Great Ball Poke Gacha Pokémon (no Master Ball or Beast Ball)"><input type="checkbox" id="easy"> Easy to get only</label>
-      </div>
-      <div class="field">
         <label for="sort">Sort by</label>
         <div class="row" style="gap:6px">
           <select id="sort">
@@ -220,11 +215,7 @@ const catOf = s => SKILL_CAT[s] || 'single';
 /* ---------- derived data ---------- */
 const BALL_ORDER = ['Poke Ball','Great Ball','Ultra Ball','Master Ball','Beast Ball'];
 const BALL_CLASS = {'Poke Ball':'b-poke','Great Ball':'b-great','Ultra Ball':'b-ultra','Master Ball':'b-master','Beast Ball':'b-beast'};
-const byName = {}; MONS.forEach(m => byName[m.name] = m);
-function root(m){ let c=m,g=0; while(c.from && byName[c.from] && g++<8) c=byName[c.from]; return c; }
 MONS.forEach(m => {
-  const r = root(m);
-  m.easy = (r.ball==='Poke Ball'||r.ball==='Great Ball') && r.how==='Poke Gacha' && m.ball!=='Master Ball' && m.ball!=='Beast Ball';
   m.types = m.type.split('/');
   m.lname = m.name.toLowerCase();
 });
@@ -239,7 +230,7 @@ const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, q:'', type:'', balls:new Set(BALL_ORDER), easy:false, sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, q:'', type:'', balls:new Set(BALL_ORDER), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -260,7 +251,6 @@ function saveHash(){
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
   if(S.balls.size!==BALL_ORDER.length) p.set('b', [...S.balls].join('|'));
-  if(S.easy) p.set('easy','1');
   if(S.sort!=='dex') p.set('o', S.sort);
   if(S.desc) p.set('d','1');
   const h = p.toString();
@@ -277,7 +267,6 @@ function loadHash(){
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
   if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
-  d.easy = p.get('easy')==='1';
   if(['dex','name','level','count','ball'].includes(p.get('o'))) d.sort = p.get('o');
   d.desc = p.get('d')==='1';
   S = d;
@@ -302,7 +291,6 @@ function run(){
   const out = [];
   for(const m of MONS){
     if(!S.balls.has(m.ball)) continue;
-    if(S.easy && !m.easy) continue;
     if(S.type && !m.types.includes(S.type)) continue;
     if(q){ const num = q.replace(/^#/,''); if(!(m.lname.includes(q) || (/^\d+$/.test(num) && String(m.dex)===String(+num)))) continue; }
     const a = analyse(m);
@@ -334,7 +322,7 @@ function card(r){
     <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onerror="this.style.visibility='hidden'"></div>
     <div class="info">
       <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span></div>
-      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.easy?'<span class="easy" title="Evolution line starts from a Poke Ball / Great Ball Poke Gacha Pokémon">★ easy</span>':''}</div>
+      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span></div>
       <div class="how">${esc(m.how)}</div>
       <ul class="moves">${moves}</ul>
     </div>
@@ -348,7 +336,7 @@ function render(){
   $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>${(S.min>1||S.max<MAX_LV||S.top)?' (level filter on)':''}` : '');
   $('results').innerHTML = total ? current.slice(0,shown).map(card).join('') : '';
   if(!total){
-    $('results').innerHTML = '<div class="empty" style="grid-column:1/-1">No Pokémon match these filters. Try widening the skill level range, switching to “Has any”, or turning off “Easy to get only”.</div>';
+    $('results').innerHTML = '<div class="empty" style="grid-column:1/-1">No Pokémon match these filters. Try widening the skill level range, or switching to “Has any”.</div>';
   }
   $('more').hidden = shown>=total;
   $('more').textContent = `Show more (${total-shown} left)`;
@@ -363,7 +351,7 @@ function renderChips(){
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
   $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top;
-  $('q').value = S.q; $('type').value = S.type; $('easy').checked = S.easy; $('sort').value = S.sort;
+  $('q').value = S.q; $('type').value = S.type; $('sort').value = S.sort;
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
   document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
@@ -428,7 +416,6 @@ function bind(){
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
   $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };
   $('balls').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.balls.add(v) : S.balls.delete(v); S.shown=PAGE; render(); });
-  $('easy').onchange = e=>{ S.easy=e.target.checked; S.shown=PAGE; render(); };
   $('sort').onchange = e=>{ S.sort=e.target.value; S.desc=false; S.shown=PAGE; render(); };
   $('dir').onclick = ()=>{ S.desc=!S.desc; render(); };
   $('reset').onclick = ()=>{ S=DEF(); render(); };

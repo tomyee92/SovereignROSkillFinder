@@ -8,7 +8,7 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - Pick one or more RO skills (autocomplete, or "Browse all skills" grouped by AOE / Single / Support).
 - **Has all / Has any** when several skills are selected.
 - Filter by **skill level** (min–max) or **top level only** per skill.
-- Filter by name or Pokédex #, type, ball, and **Easy to get only** (evolution line starts from a Poke Ball / Great Ball Poke Gacha Pokémon).
+- Filter by name or Pokédex #, type and ball.
 - Sort by Pokédex #, name, skill level, number of matching skills, or ball rarity; ascending/descending.
 - Matching skills are highlighted on each card. **Copy link** shares the exact search (state lives in the URL hash).
 
