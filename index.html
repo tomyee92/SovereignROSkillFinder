@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sovereign RO Pokédex Skill Finder</title>
+<meta name="description" content="Search Sovereign RO Pokémon by Ragnarok Online skill name (Psychic Wave, Earthquake, Spiral Pierce...), filter by skill level, and sort. Unofficial fan tool.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23e8483c'/%3E%3Cpath d='M4 50h92' stroke='%23111' stroke-width='8'/%3E%3Cpath d='M4 50a46 46 0 0 0 92 0z' fill='%23f4f4f4'/%3E%3Ccircle cx='50' cy='50' r='13' fill='%23f4f4f4' stroke='%23111' stroke-width='8'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0f1220; --panel:#171b2e; --panel2:#1e2340; --line:#2b3157; --text:#e8eaf6; --muted:#98a0c8;
+  --accent:#ffcb3d; --accent2:#7c8cff; --hit:#2a3a1f; --hitline:#6fcf4a;
+  --aoe:#ff8a3d; --aoes:#b07cff; --single:#4aa8ff; --support:#4ad19a; --status:#98a0c8;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent2)}
+header{padding:20px 16px 8px;max-width:1280px;margin:0 auto}
+h1{margin:0;font-size:24px;letter-spacing:.2px}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0;font-size:13px}
+main{max-width:1280px;margin:0 auto;padding:8px 16px 48px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>label,.lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+input[type=text],select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;min-width:0}
+input[type=text]:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+.grow{flex:1 1 320px}
+.picker{position:relative}
+#skillList{position:absolute;z-index:20;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;max-height:300px;overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px #0008}
+#skillList li{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border-radius:6px;cursor:pointer;align-items:center}
+#skillList li[aria-selected=true],#skillList li:hover{background:#2c3466}
+#skillList .n{color:var(--muted);font-size:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;min-height:4px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:#2c3466;border:1px solid #4a56a0;border-radius:999px;padding:5px 6px 5px 12px;font-weight:600}
+.chip button{background:#0003;border:0;color:var(--text);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1}
+.chip button:hover{background:#e8483c}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel2);color:var(--muted);border:0;padding:9px 12px;cursor:pointer;font:inherit}
+.seg button[aria-pressed=true]{background:var(--accent2);color:#10142b;font-weight:700}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.chk input{accent-color:var(--accent2);width:16px;height:16px}
+.balls{display:flex;flex-wrap:wrap;gap:6px 14px}
+.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}
+.btn:hover{border-color:var(--accent2)}
+details.browse{margin-top:12px}
+details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
+.grp{margin-top:10px}
+.grp h3{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
+.pill small{color:var(--muted)}
+.pill:hover{border-color:var(--accent2)}
+.pill[aria-pressed=true]{background:#2c3466;border-color:var(--accent2)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:16px 0 8px}
+#count{color:var(--muted)}
+#count b{color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;min-width:0}
+.card.hit{border-color:#3d5f2c}
+.pic{flex:0 0 84px;height:84px;background:var(--panel2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pic img{width:80px;height:80px;image-rendering:auto;object-fit:contain}
+.info{min-width:0;flex:1}
+.name{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.name b{font-size:16px}
+.dex{color:var(--muted);font-size:12px}
+.meta{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 2px}
+.t{font-size:11px;padding:2px 8px;border-radius:999px;background:#2a2f55;border:1px solid #3a4175}
+.ball{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid transparent;font-weight:600}
+.b-poke{background:#4a1f26;color:#ff9aa6;border-color:#7a3340}
+.b-great{background:#1d3358;color:#8fbcff;border-color:#2f5090}
+.b-ultra{background:#4d4318;color:#ffe27a;border-color:#7d6c24}
+.b-master{background:#3b1f55;color:#d9a8ff;border-color:#62338f}
+.b-beast{background:#1d4a46;color:#7ff0e0;border-color:#2e7a73}
+.easy{font-size:11px;padding:2px 8px;border-radius:999px;background:#1f3a24;color:#8ee29a;border:1px solid #2f6a39}
+.how{font-size:12px;color:var(--muted);margin-bottom:6px}
+.moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.moves li{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 6px;border-radius:6px;font-size:13px}
+.moves li.hit{background:var(--hit);box-shadow:inset 3px 0 0 var(--hitline)}
+.mv{color:var(--muted)}
+.arrow{color:#566}
+.sk{font-weight:600}
+.lv{background:#0004;border-radius:6px;padding:0 6px;font-weight:700;color:var(--accent)}
+.tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:700;letter-spacing:.3px;margin-left:auto}
+.tag.aoe{background:#4a2a10;color:var(--aoe)}
+.tag.aoes{background:#35214f;color:var(--aoes)}
+.tag.single{background:#12304f;color:var(--single)}
+.tag.support{background:#103a2c;color:var(--support)}
+.tag.status{background:#2a2f4a;color:var(--status)}
+.empty{padding:40px 12px;text-align:center;color:var(--muted)}
+.more{display:flex;justify-content:center;margin:18px 0}
+footer{max-width:1280px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:12px}
+footer p{margin:6px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend .tag{margin-left:0}
+@media (max-width:520px){
+  .grid{grid-template-columns:1fr}
+  .pic{flex-basis:68px;height:68px}.pic img{width:64px;height:64px}
+  .field.grow{flex-basis:100%}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Sovereign RO</span> Pokédex Skill Finder</h1>
+  <p class="sub">Find Pokémon by the <b>Ragnarok Online skill</b> their moves use, filter by skill level and sort. <span id="snap"></span></p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Filters">
+    <div class="row">
+      <div class="field grow">
+        <label for="skillInput">Skill (RO skill name)</label>
+        <div class="picker">
+          <input id="skillInput" type="text" placeholder="Type a skill, e.g. Psychic Wave, Earthquake, Spiral Pierce…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="skillList" aria-autocomplete="list">
+          <ul id="skillList" role="listbox" hidden></ul>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">Several skills</span>
+        <div class="seg" role="group" aria-label="Match mode">
+          <button type="button" id="modeAll" aria-pressed="true" title="Pokémon must have every selected skill">Has all</button>
+          <button type="button" id="modeAny" aria-pressed="false" title="Pokémon with any selected skill">Has any</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="minLv">Skill level</label>
+        <div class="row" style="gap:6px;align-items:center">
+          <select id="minLv" aria-label="Minimum skill level"></select>
+          <span>to</span>
+          <select id="maxLv" aria-label="Maximum skill level"></select>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">&nbsp;</span>
+        <label class="chk" title="Only the highest level that exists in the game for each selected skill"><input type="checkbox" id="topOnly"> Top level only</label>
+      </div>
+    </div>
+    <div class="chips" id="chips" aria-live="polite"></div>
+
+    <details class="browse" id="browse">
+      <summary>Browse all skills</summary>
+      <div id="browseBody"></div>
+      <div class="legend" id="legend"></div>
+    </details>
+  </section>
+
+  <section class="panel" aria-label="More filters and sorting">
+    <div class="row">
+      <div class="field">
+        <label for="q">Pokémon name or #</label>
+        <input id="q" type="text" placeholder="e.g. Delphox or 655" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="type">Type</label>
+        <select id="type"><option value="">All types</option></select>
+      </div>
+      <div class="field">
+        <span class="lbl">Ball</span>
+        <div class="balls" id="balls"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">&nbsp;</span>
+        <label class="chk" title="Pokémon whose whole evolution line starts from a Poke Ball / Great Ball Poke Gacha Pokémon (no Master Ball or Beast Ball)"><input type="checkbox" id="easy"> Easy to get only</label>
+      </div>
+      <div class="field">
+        <label for="sort">Sort by</label>
+        <div class="row" style="gap:6px">
+          <select id="sort">
+            <option value="dex">Pokédex #</option>
+            <option value="name">Pokémon name</option>
+            <option value="level">Skill level</option>
+            <option value="count">Number of matching skills</option>
+            <option value="ball">Ball (rarest first)</option>
+          </select>
+          <button type="button" class="btn" id="dir" title="Toggle ascending / descending" aria-label="Toggle sort direction">↑ Asc</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">&nbsp;</span>
+        <button type="button" class="btn" id="reset">Reset all</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="bar">
+    <div id="count" aria-live="polite"></div>
+    <button type="button" class="btn" id="copy" title="Copy a link to this exact search">Copy link</button>
+  </div>
+  <div id="results" class="grid"></div>
+  <div class="more"><button type="button" class="btn" id="more" hidden>Show more</button></div>
+</main>
+
+<footer>
+  <p><b>Unofficial fan tool.</b> Pokémon data and pictures come from the <a href="https://sovereignro.com/?module=pokedex" target="_blank" rel="noopener">Sovereign RO Pokédex</a>; pictures are loaded straight from their site. Data is a snapshot (see date at the top) and can go out of date when the server changes — run <code>scripts/update_data.py</code> to refresh.</p>
+  <p>Skill tags (AOE / Single / Support) are approximate. Whether a skill hits an area comes from the rAthena Renewal skill database; how hard it hits depends on this server and the Pokémon's own stats, which this page does not show.</p>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function(){
+'use strict';
+const DATA = window.SKILLDATA;
+const MONS = DATA.pokemon;
+
+/* ---------- skill categories (approximate, see footer) ---------- */
+const CATS = {
+  aoe: {label:'AOE', name:'Area damage', skills:['Acid Breath','Arrow Storm','Bowling Bash','Comet','Darkness Breath','Dragon Breath','Earthquake','Fire Ball','Fire Breath','Frost Nova','Heaven\'s Drive','Hell Burning','Hell\'s Judgement','Ice Breath','Ignition Break','Jack Frost','Lord of Vermilion','Meteor Storm','Napalm Beat','Napalm Vulcan','Poison Buster','Psychic Wave','Pulse Strike','Rain of Meteor','Ray of Genesis','Storm Gust','Thunder Breath','Thunderstorm','Vampire Gift','Venom Fog']},
+  aoes:{label:'AOE status', name:'Area status effect (no damage)', skills:['Dragon Fear','Hammer Fall','Venom Dust','Wide Confusion','Wide Sleep','Wide Stun','Wide Web']},
+  single:{label:'Single', name:'Single-target damage', skills:['Bash','Bleeding','Blood Drain','Cold Bolt','Combo Attack','Critical Slash','Earth Attribute Attack','Earth Spike','Energy Drain','Fire Attribute Attack','Fire Bolt','Frost Diver','Ghost Attribute Attack','Holy Attribute Attack','Jupitel Thunder','Lick','Lightning Bolt','Pierce','Poison Attribute Attack','Random Attack','Shadow Attribute Attack','Shield Boomerang','Sonic Blow','Soul Strike','Spiral Pierce','Stun Attack','Water Attribute Attack','Wind Attribute Attack']},
+  support:{label:'Support', name:'Buff / heal / debuff', skills:['Agility Up','Barrier','Defender','Heal','Increase AGI','Power Up','Provoke','Stone Skin']},
+  status:{label:'Status', name:'Single-target status effect', skills:['Blind Attack','Curse Attack','Poison Attack','Silence Attack','Sleep Attack']}
+};
+const SKILL_CAT = {};
+Object.entries(CATS).forEach(([k,c])=>c.skills.forEach(s=>SKILL_CAT[s]=k));
+const catOf = s => SKILL_CAT[s] || 'single';
+
+/* ---------- derived data ---------- */
+const BALL_ORDER = ['Poke Ball','Great Ball','Ultra Ball','Master Ball','Beast Ball'];
+const BALL_CLASS = {'Poke Ball':'b-poke','Great Ball':'b-great','Ultra Ball':'b-ultra','Master Ball':'b-master','Beast Ball':'b-beast'};
+const byName = {}; MONS.forEach(m => byName[m.name] = m);
+function root(m){ let c=m,g=0; while(c.from && byName[c.from] && g++<8) c=byName[c.from]; return c; }
+MONS.forEach(m => {
+  const r = root(m);
+  m.easy = (r.ball==='Poke Ball'||r.ball==='Great Ball') && r.how==='Poke Gacha' && m.ball!=='Master Ball' && m.ball!=='Beast Ball';
+  m.types = m.type.split('/');
+  m.lname = m.name.toLowerCase();
+});
+const SKILLS = {}; // name -> {count, max}
+MONS.forEach(m => { const seen=new Set(); m.moves.forEach(x=>{
+  const s = SKILLS[x.skill] || (SKILLS[x.skill]={name:x.skill,count:0,max:0});
+  if(!seen.has(x.skill)){ s.count++; seen.add(x.skill); }
+  if(x.lv>s.max) s.max=x.lv;
+});});
+const SKILL_NAMES = Object.keys(SKILLS).sort((a,b)=>a.localeCompare(b));
+const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
+const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
+
+/* ---------- state ---------- */
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, q:'', type:'', balls:new Set(BALL_ORDER), easy:false, sort:'dex', desc:false, shown:60});
+let S = DEF();
+const PAGE = 60;
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(3,'0');
+const imgUrl = dex => 'https://sovereignro.com/data/pokedex/img/' + pad(dex) + '.png';
+
+/* ---------- URL hash ---------- */
+function saveHash(){
+  const p = new URLSearchParams();
+  if(S.skills.length) p.set('s', S.skills.join('|'));
+  if(S.mode!=='all') p.set('m', S.mode);
+  if(S.min>1) p.set('min', S.min);
+  if(S.max<MAX_LV) p.set('max', S.max);
+  if(S.top) p.set('top','1');
+  if(S.q) p.set('q', S.q);
+  if(S.type) p.set('t', S.type);
+  if(S.balls.size!==BALL_ORDER.length) p.set('b', [...S.balls].join('|'));
+  if(S.easy) p.set('easy','1');
+  if(S.sort!=='dex') p.set('o', S.sort);
+  if(S.desc) p.set('d','1');
+  const h = p.toString();
+  try{ history.replaceState(null,'', h ? '#'+h : location.pathname + location.search); }catch(e){}
+}
+function loadHash(){
+  const p = new URLSearchParams(location.hash.replace(/^#/,''));
+  const d = DEF();
+  if(p.get('s')) d.skills = p.get('s').split('|').filter(s=>SKILLS[s]);
+  if(p.get('m')==='any') d.mode='any';
+  if(p.get('min')) d.min = Math.min(MAX_LV, Math.max(1, +p.get('min')||1));
+  if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
+  d.top = p.get('top')==='1';
+  d.q = p.get('q')||'';
+  if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
+  if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
+  d.easy = p.get('easy')==='1';
+  if(['dex','name','level','count','ball'].includes(p.get('o'))) d.sort = p.get('o');
+  d.desc = p.get('d')==='1';
+  S = d;
+}
+
+/* ---------- filtering ---------- */
+function analyse(m){
+  if(!S.skills.length) return {ok:true, hits:new Set(), best:Math.max(...m.moves.map(x=>x.lv),0), n:0};
+  const hits = new Set(), got = new Set(); let best = 0;
+  m.moves.forEach((x,i)=>{
+    if(!S.skills.includes(x.skill)) return;
+    const lo = S.min, hi = S.max;
+    if(x.lv<lo || x.lv>hi) return;
+    if(S.top && x.lv!==SKILLS[x.skill].max) return;
+    hits.add(i); got.add(x.skill); if(x.lv>best) best=x.lv;
+  });
+  const ok = S.mode==='all' ? S.skills.every(s=>got.has(s)) : got.size>0;
+  return {ok, hits, best, n:got.size};
+}
+function run(){
+  const q = S.q.trim().toLowerCase();
+  const out = [];
+  for(const m of MONS){
+    if(!S.balls.has(m.ball)) continue;
+    if(S.easy && !m.easy) continue;
+    if(S.type && !m.types.includes(S.type)) continue;
+    if(q){ const num = q.replace(/^#/,''); if(!(m.lname.includes(q) || (/^\d+$/.test(num) && String(m.dex)===String(+num)))) continue; }
+    const a = analyse(m);
+    if(!a.ok) continue;
+    out.push({m, a});
+  }
+  const dir = S.desc ? -1 : 1;
+  const cmp = {
+    dex:   (x,y)=> x.m.dex-y.m.dex,
+    name:  (x,y)=> x.m.name.localeCompare(y.m.name),
+    level: (x,y)=> (x.a.best-y.a.best) || (x.m.dex-y.m.dex),
+    count: (x,y)=> (x.a.n-y.a.n) || (x.a.best-y.a.best) || (x.m.dex-y.m.dex),
+    ball:  (x,y)=> (BALL_ORDER.indexOf(x.m.ball)-BALL_ORDER.indexOf(y.m.ball)) || (x.m.dex-y.m.dex)
+  }[S.sort];
+  // "Skill level" and "matching skills" read naturally high -> low, so flip the arrow meaning for them
+  const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball') ? -1 : 1;
+  out.sort((x,y)=> cmp(x,y)*dir*flip);
+  return out;
+}
+
+/* ---------- rendering ---------- */
+function tag(skill){ const c = CATS[catOf(skill)]; return `<span class="tag ${catOf(skill)}" title="${esc(c.name)}">${esc(c.label)}</span>`; }
+function card(r){
+  const {m,a} = r;
+  const hit = a.hits.size>0;
+  const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><span class="mv">${esc(x.move)}</span><span class="arrow">→</span><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</li>`).join('');
+  const types = m.types.map(t=>`<span class="t">${esc(t)}</span>`).join('');
+  return `<article class="card${hit?' hit':''}">
+    <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onerror="this.style.visibility='hidden'"></div>
+    <div class="info">
+      <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span></div>
+      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.easy?'<span class="easy" title="Evolution line starts from a Poke Ball / Great Ball Poke Gacha Pokémon">★ easy</span>':''}</div>
+      <div class="how">${esc(m.how)}</div>
+      <ul class="moves">${moves}</ul>
+    </div>
+  </article>`;
+}
+let current = [];
+function render(){
+  current = run();
+  const total = current.length;
+  const shown = Math.min(S.shown, total);
+  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>${(S.min>1||S.max<MAX_LV||S.top)?' (level filter on)':''}` : '');
+  $('results').innerHTML = total ? current.slice(0,shown).map(card).join('') : '';
+  if(!total){
+    $('results').innerHTML = '<div class="empty" style="grid-column:1/-1">No Pokémon match these filters. Try widening the skill level range, switching to “Has any”, or turning off “Easy to get only”.</div>';
+  }
+  $('more').hidden = shown>=total;
+  $('more').textContent = `Show more (${total-shown} left)`;
+  renderChips(); syncControls(); saveHash();
+}
+
+/* ---------- controls ---------- */
+function renderChips(){
+  $('chips').innerHTML = S.skills.map(s=>`<span class="chip">${esc(s)} <small style="opacity:.7">max Lv ${SKILLS[s].max}</small><button type="button" data-rm="${esc(s)}" aria-label="Remove ${esc(s)}">×</button></span>`).join('');
+  document.querySelectorAll('#browseBody .pill').forEach(p=>p.setAttribute('aria-pressed', S.skills.includes(p.dataset.skill)?'true':'false'));
+}
+function syncControls(){
+  $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
+  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top;
+  $('q').value = S.q; $('type').value = S.type; $('easy').checked = S.easy; $('sort').value = S.sort;
+  const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
+  $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
+  document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
+}
+function addSkill(s){ if(!S.skills.includes(s)) S.skills.push(s); S.shown=PAGE; closeList(); $('skillInput').value=''; render(); }
+function removeSkill(s){ S.skills = S.skills.filter(x=>x!==s); S.shown=PAGE; render(); }
+function toggleSkill(s){ S.skills.includes(s) ? removeSkill(s) : addSkill(s); }
+
+/* skill picker */
+let sel = -1, listItems = [];
+function openList(){
+  const t = $('skillInput').value.trim().toLowerCase();
+  listItems = SKILL_NAMES.filter(s=>!S.skills.includes(s) && (!t || s.toLowerCase().includes(t)))
+    .sort((a,b)=>{ const as=a.toLowerCase().startsWith(t), bs=b.toLowerCase().startsWith(t); return (bs-as) || (SKILLS[b].count-SKILLS[a].count) || a.localeCompare(b); });
+  sel = listItems.length ? 0 : -1;
+  const ul = $('skillList');
+  ul.innerHTML = listItems.length ? listItems.map((s,i)=>`<li role="option" data-skill="${esc(s)}" aria-selected="${i===sel}"><span>${esc(s)} ${tag(s)}</span><span class="n">${SKILLS[s].count} Pokémon · max Lv ${SKILLS[s].max}</span></li>`).join('') : '<li style="cursor:default;color:var(--muted)">No matching skill</li>';
+  ul.hidden = false; $('skillInput').setAttribute('aria-expanded','true');
+}
+function closeList(){ $('skillList').hidden = true; $('skillInput').setAttribute('aria-expanded','false'); }
+function moveSel(d){
+  if(!listItems.length) return; sel = (sel+d+listItems.length)%listItems.length;
+  [...$('skillList').children].forEach((li,i)=>li.setAttribute('aria-selected', i===sel));
+  $('skillList').children[sel].scrollIntoView({block:'nearest'});
+}
+
+function buildStatic(){
+  $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
+  const lvOpts = Array.from({length:MAX_LV},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  $('minLv').innerHTML = lvOpts; $('maxLv').innerHTML = lvOpts;
+  $('type').innerHTML += ALL_TYPES.map(t=>`<option>${esc(t)}</option>`).join('');
+  $('balls').innerHTML = BALL_ORDER.map(b=>`<label class="chk"><input type="checkbox" value="${b}" checked> <span class="ball ${BALL_CLASS[b]}">${b}</span></label>`).join('');
+  $('browseBody').innerHTML = Object.entries(CATS).map(([k,c])=>{
+    const names = c.skills.filter(s=>SKILLS[s]).sort((a,b)=>SKILLS[b].count-SKILLS[a].count);
+    return names.length ? `<div class="grp"><h3>${esc(c.name)}</h3><div class="pills">${names.map(s=>`<button type="button" class="pill" data-skill="${esc(s)}" aria-pressed="false">${esc(s)} <small>${SKILLS[s].count}</small></button>`).join('')}</div></div>` : '';
+  }).join('');
+  const others = SKILL_NAMES.filter(s=>!SKILL_CAT[s]);
+  if(others.length) $('browseBody').innerHTML += `<div class="grp"><h3>Other</h3><div class="pills">${others.map(s=>`<button type="button" class="pill" data-skill="${esc(s)}" aria-pressed="false">${esc(s)} <small>${SKILLS[s].count}</small></button>`).join('')}</div></div>`;
+  $('legend').innerHTML = 'Tags: ' + Object.entries(CATS).map(([k,c])=>`<span><span class="tag ${k}">${esc(c.label)}</span> ${esc(c.name)}</span>`).join(' ');
+}
+
+function bind(){
+  const inp = $('skillInput');
+  inp.addEventListener('input', openList);
+  inp.addEventListener('focus', openList);
+  inp.addEventListener('keydown', e=>{
+    if(e.key==='ArrowDown'){ e.preventDefault(); if($('skillList').hidden) openList(); else moveSel(1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); moveSel(-1); }
+    else if(e.key==='Enter'){ e.preventDefault(); if(!$('skillList').hidden && sel>=0) addSkill(listItems[sel]); }
+    else if(e.key==='Escape'){ closeList(); }
+    else if(e.key==='Backspace' && !inp.value && S.skills.length){ removeSkill(S.skills[S.skills.length-1]); }
+  });
+  $('skillList').addEventListener('mousedown', e=>{ const li=e.target.closest('li[data-skill]'); if(li){ e.preventDefault(); addSkill(li.dataset.skill); } });
+  document.addEventListener('click', e=>{ if(!e.target.closest('.picker')) closeList(); });
+  $('chips').addEventListener('click', e=>{ const b=e.target.closest('[data-rm]'); if(b) removeSkill(b.dataset.rm); });
+  $('browseBody').addEventListener('click', e=>{ const b=e.target.closest('.pill'); if(b) toggleSkill(b.dataset.skill); });
+  $('modeAll').onclick = ()=>{ S.mode='all'; S.shown=PAGE; render(); };
+  $('modeAny').onclick = ()=>{ S.mode='any'; S.shown=PAGE; render(); };
+  $('minLv').onchange = e=>{ S.min=+e.target.value; if(S.max<S.min) S.max=S.min; S.shown=PAGE; render(); };
+  $('maxLv').onchange = e=>{ S.max=+e.target.value; if(S.min>S.max) S.min=S.max; S.shown=PAGE; render(); };
+  $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
+  let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
+  $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };
+  $('balls').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.balls.add(v) : S.balls.delete(v); S.shown=PAGE; render(); });
+  $('easy').onchange = e=>{ S.easy=e.target.checked; S.shown=PAGE; render(); };
+  $('sort').onchange = e=>{ S.sort=e.target.value; S.desc=false; S.shown=PAGE; render(); };
+  $('dir').onclick = ()=>{ S.desc=!S.desc; render(); };
+  $('reset').onclick = ()=>{ S=DEF(); render(); };
+  $('more').onclick = ()=>{ S.shown+=PAGE; render(); };
+  $('copy').onclick = async ()=>{
+    try{ await navigator.clipboard.writeText(location.href); $('copy').textContent='Copied ✓'; }catch(e){ $('copy').textContent='Copy failed'; }
+    setTimeout(()=>$('copy').textContent='Copy link',1500);
+  };
+  window.addEventListener('hashchange', ()=>{ loadHash(); render(); });
+}
+
+buildStatic(); loadHash(); bind(); render();
+})();
+</script>
+</body>
+</html>
