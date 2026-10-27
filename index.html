@@ -67,7 +67,7 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;min-width:0}
 .card.hit{border-color:#3d5f2c}
 .pic{flex:0 0 84px;height:84px;background:var(--panel2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.pic img{width:80px;height:80px;image-rendering:auto;object-fit:contain}
+.pic img{width:80px;height:80px;image-rendering:auto;object-fit:contain;opacity:0;transition:opacity .25s}
 .info{min-width:0;flex:1}
 .name{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .name b{font-size:16px}
@@ -346,7 +346,7 @@ function card(r){
   const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><div class="l1"><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</div><div class="mv">${esc(x.move)}</div></li>`).join('');
   const types = m.types.map(t=>`<span class="t">${esc(t)}</span>`).join('');
   return `<article class="card${hit?' hit':''}">
-    <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onerror="this.style.visibility='hidden'"></div>
+    <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onload="this.style.opacity=1" onerror="this.style.visibility='hidden'"></div>
     <div class="info">
       <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span></div>
       <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span></div>
@@ -493,7 +493,11 @@ function bind(){
   $('reset').onclick = ()=>{ S=DEF(); render(); };
   $('more').onclick = ()=>{ S.shown+=PAGE; render(); };
   $('copy').onclick = async ()=>{
-    try{ await navigator.clipboard.writeText(location.href); $('copy').textContent='Copied ✓'; }catch(e){ $('copy').textContent='Copy failed'; }
+    let done = false;
+    try{ await navigator.clipboard.writeText(location.href); done = true; }catch(e){
+      try{ const t=document.createElement('textarea'); t.value=location.href; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); done=document.execCommand('copy'); t.remove(); }catch(e2){}
+    }
+    $('copy').textContent = done ? 'Copied ✓' : 'Copy failed';
     setTimeout(()=>$('copy').textContent='Copy link',1500);
   };
   window.addEventListener('hashchange', ()=>{ loadHash(); render(); });
