@@ -28,7 +28,8 @@ main{max-width:1280px;margin:0 auto;padding:8px 16px 48px}
 input[type=text],select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;min-width:0}
 input[type=text]:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
 .grow{flex:1 1 320px}
-.picker{position:relative}
+.picker{position:relative;width:100%}
+.grow input[type=text]{width:100%}
 #skillList{position:absolute;z-index:20;left:0;right:0;top:100%;margin:4px 0 0;padding:4px;list-style:none;max-height:300px;overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px #0008}
 #skillList li{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border-radius:6px;cursor:pointer;align-items:center}
 #skillList li[aria-selected=true],#skillList li:hover{background:#2c3466}
@@ -55,6 +56,11 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .pill:hover{border-color:var(--accent2)}
 .pill[aria-pressed=true]{background:#2c3466;border-color:var(--accent2)}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:16px 0 8px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools .lbl{margin-right:-2px}
+.filt{padding:10px 14px}
+.filt summary{cursor:pointer;font-weight:600;color:var(--accent2)}
+.sumhint{color:var(--accent);font-weight:700;margin-left:6px}
 #count{color:var(--muted)}
 #count b{color:var(--text)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
@@ -76,13 +82,13 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .b-beast{background:#1d4a46;color:#7ff0e0;border-color:#2e7a73}
 .how{font-size:12px;color:var(--muted);margin-bottom:6px}
 .moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
-.moves li{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 6px;border-radius:6px;font-size:13px}
+.moves li{padding:4px 8px;border-radius:6px;font-size:13px}
+.l1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .moves li.hit{background:var(--hit);box-shadow:inset 3px 0 0 var(--hitline)}
-.mv{color:var(--muted)}
-.arrow{color:#566}
+.mv{color:var(--muted);font-size:12px;margin-top:1px}
 .sk{font-weight:600}
 .lv{background:#0004;border-radius:6px;padding:0 6px;font-weight:700;color:var(--accent)}
-.tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:700;letter-spacing:.3px;margin-left:auto}
+.tag{font-size:10px;padding:1px 6px;border-radius:5px;font-weight:700;letter-spacing:.3px}
 .tag.aoe{background:#4a2a10;color:var(--aoe)}
 .tag.aoes{background:#35214f;color:var(--aoes)}
 .tag.single{background:#12304f;color:var(--single)}
@@ -96,7 +102,6 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 footer{max-width:1280px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:12px}
 footer p{margin:6px 0}
 .legend{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted)}
-.legend .tag{margin-left:0}
 @media (max-width:520px){
   .grid{grid-template-columns:1fr}
   .pic{flex-basis:68px;height:68px}.pic img{width:64px;height:64px}
@@ -150,8 +155,9 @@ footer p{margin:6px 0}
     </details>
   </section>
 
-  <section class="panel" aria-label="More filters and sorting">
-    <div class="row">
+  <details class="panel filt" id="moreFilters">
+    <summary>More filters: name, type, ball <span class="sumhint" id="moreHint"></span></summary>
+    <div class="row" style="margin-top:12px">
       <div class="field">
         <label for="q">Pokémon name or #</label>
         <input id="q" type="text" placeholder="e.g. Delphox or 655" autocomplete="off">
@@ -164,29 +170,24 @@ footer p{margin:6px 0}
         <span class="lbl">Ball</span>
         <div class="balls" id="balls"></div>
       </div>
-      <div class="field">
-        <label for="sort">Sort by</label>
-        <div class="row" style="gap:6px">
-          <select id="sort">
-            <option value="dex">Pokédex #</option>
-            <option value="name">Pokémon name</option>
-            <option value="level">Skill level</option>
-            <option value="count">Number of matching skills</option>
-            <option value="ball">Ball (rarest first)</option>
-          </select>
-          <button type="button" class="btn" id="dir" title="Toggle ascending / descending" aria-label="Toggle sort direction">↑ Asc</button>
-        </div>
-      </div>
-      <div class="field">
-        <span class="lbl">&nbsp;</span>
-        <button type="button" class="btn" id="reset">Reset all</button>
-      </div>
     </div>
-  </section>
+  </details>
 
   <div class="bar">
     <div id="count" aria-live="polite"></div>
-    <button type="button" class="btn" id="copy" title="Copy a link to this exact search">Copy link</button>
+    <div class="tools">
+      <label class="lbl" for="sort">Sort by</label>
+      <select id="sort">
+        <option value="dex">Pokédex #</option>
+        <option value="name">Pokémon name</option>
+        <option value="level">Skill level</option>
+        <option value="count">Number of matching skills</option>
+        <option value="ball">Ball (rarest first)</option>
+      </select>
+      <button type="button" class="btn" id="dir" title="Toggle ascending / descending" aria-label="Toggle sort direction">↑ Asc</button>
+      <button type="button" class="btn" id="reset">Reset all</button>
+      <button type="button" class="btn" id="copy" title="Copy a link to this exact search">Copy link</button>
+    </div>
   </div>
   <div id="results" class="grid"></div>
   <div class="more"><button type="button" class="btn" id="more" hidden>Show more</button></div>
@@ -342,7 +343,7 @@ function tag(skill){ const c = CATS[catOf(skill)]; return `<span class="tag ${ca
 function card(r){
   const {m,a} = r;
   const hit = a.hits.size>0;
-  const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><span class="mv">${esc(x.move)}</span><span class="arrow">→</span><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</li>`).join('');
+  const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><div class="l1"><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</div><div class="mv">${esc(x.move)}</div></li>`).join('');
   const types = m.types.map(t=>`<span class="t">${esc(t)}</span>`).join('');
   return `<article class="card${hit?' hit':''}">
     <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onerror="this.style.visibility='hidden'"></div>
@@ -403,6 +404,8 @@ function syncControls(){
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
   document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
+  const extra = !!(S.q || S.type || S.balls.size<BALL_ORDER.length);
+  $('moreHint').textContent = extra ? '· active' : '';
 }
 function addSkill(s){
   if(!S.skills.includes(s)) S.skills.push(s);
@@ -496,7 +499,9 @@ function bind(){
   window.addEventListener('hashchange', ()=>{ loadHash(); render(); });
 }
 
-buildStatic(); loadHash(); bind(); render();
+buildStatic(); loadHash(); bind();
+$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.balls.size<BALL_ORDER.length);
+render();
 })();
 </script>
 </body>
