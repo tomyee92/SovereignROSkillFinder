@@ -11,4 +11,10 @@ window.RARE = [
   "Kleavor",  // Scyther evolution
   "Mimikyu",
   "Spiritomb",
+  // reported by a friend
+  "Rotom",
+  "Carbink",
+  "Luvdisc",
+  "Heracross",
+  // (Gengar was also in the friend's list; already above)
 ];
