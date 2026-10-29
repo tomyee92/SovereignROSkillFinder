@@ -209,8 +209,13 @@ footer p{margin:6px 0}
   <p>Skill tags (AOE / Single / Support) are approximate. Whether a skill hits an area comes from the rAthena Renewal skill database; how hard it hits depends on this server and the Pokémon's own stats, which this page does not show.</p>
 </footer>
 
-<script src="data.js"></script>
-<script src="rare.js"></script>
+<!--assets-->
+<script>
+// GitHub Pages lets browsers cache files for 10 minutes. A time-bucket query string makes updates show up
+// quickly (rare.js: within a minute, data.js: within an hour) without breaking caching in between.
+(function(){var m=Date.now();[['data.js',3600000],['rare.js',60000]].forEach(function(a){document.write('<script src="'+a[0]+'?t='+Math.floor(m/a[1])+'"><\/script>');});})();
+</script>
+<!--/assets-->
 <script>
 (function(){
 'use strict';
