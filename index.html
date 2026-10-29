@@ -151,10 +151,6 @@ footer p{margin:6px 0}
         <span class="lbl">&nbsp;</span>
         <label class="chk" title="Only the highest level that exists in the game for each selected skill"><input type="checkbox" id="topOnly"> Top level only</label>
       </div>
-      <div class="field">
-        <span class="lbl">&nbsp;</span>
-        <label class="chk" title="The game has a hidden Rare category that its website does not show. This list is collected by players as they find them."><input type="checkbox" id="rareOnly"> <span class="rareb">★ Rare only</span> <small id="rareN" class="muted"></small></label>
-      </div>
     </div>
     <div class="chips" id="chips" aria-live="polite"></div>
     <div class="notice" id="notice" role="status" hidden></div>
@@ -167,7 +163,7 @@ footer p{margin:6px 0}
   </section>
 
   <details class="panel filt" id="moreFilters">
-    <summary>More filters: name, type, ball <span class="sumhint" id="moreHint"></span></summary>
+    <summary>Pokémon filters: name, type, ball, rare <span class="sumhint" id="moreHint"></span></summary>
     <div class="row" style="margin-top:12px">
       <div class="field">
         <label for="q">Pokémon name or #</label>
@@ -180,6 +176,10 @@ footer p{margin:6px 0}
       <div class="field">
         <span class="lbl">Ball</span>
         <div class="balls" id="balls"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Category</span>
+        <label class="chk" title="The game has a hidden Rare category that its website does not show. This list is collected by players as they find them."><input type="checkbox" id="rareOnly"> <span class="rareb">★ Rare only</span> <small id="rareN" class="muted"></small></label>
       </div>
     </div>
   </details>
@@ -436,7 +436,7 @@ function syncControls(){
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
   document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
-  const extra = !!(S.q || S.type || S.balls.size<BALL_ORDER.length);
+  const extra = !!(S.q || S.type || S.rare || S.balls.size<BALL_ORDER.length);
   $('moreHint').textContent = extra ? '· active' : '';
 }
 function addSkill(s){
@@ -543,7 +543,7 @@ function bind(){
 }
 
 buildStatic(); loadHash(); bind();
-$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.balls.size<BALL_ORDER.length);
+$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.rare || S.balls.size<BALL_ORDER.length);
 render();
 })();
 </script>
