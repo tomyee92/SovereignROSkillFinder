@@ -10,10 +10,14 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - Filter by **skill level** (min–max) or **top level only** per skill.
 - Filter by name or Pokédex #, type and ball.
 - Sort by Pokédex #, name, skill level, number of matching skills, or ball rarity; ascending/descending.
+- **★ Rare** category: the game has a hidden Rare category that its website does not show, so the list is collected by players (`rare.js`). Tick **Rare only** to see them; each one also gets a ★ Rare badge.
 - Matching skills are highlighted on each card. **Copy link** shares the exact search (state lives in the URL hash).
 
 ## How it works
 Static site, no build step: `index.html` + `data.js` (a snapshot of the Pokédex data). Pictures are loaded directly from sovereignro.com.
+
+## Adding Rare Pokémon
+Open `rare.js`, add the exact Pokédex name on a new line (keep the comma), then commit and push. `update_data.py` never touches this file.
 
 ## Updating the data
 When the server changes the Pokédex, rebuild the snapshot and push:

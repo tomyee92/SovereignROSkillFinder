@@ -74,6 +74,9 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .dex{color:var(--muted);font-size:12px}
 .meta{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0 2px}
 .t{font-size:11px;padding:2px 8px;border-radius:999px;background:#2a2f55;border:1px solid #3a4175}
+.rareb{color:#ffd24d;font-weight:700}
+.rareb.badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#4a3a0e;border:1px solid #8a6d1a}
+.muted{color:var(--muted)}
 .ball{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid transparent;font-weight:600}
 .b-poke{background:#4a1f26;color:#ff9aa6;border-color:#7a3340}
 .b-great{background:#1d3358;color:#8fbcff;border-color:#2f5090}
@@ -148,6 +151,10 @@ footer p{margin:6px 0}
         <span class="lbl">&nbsp;</span>
         <label class="chk" title="Only the highest level that exists in the game for each selected skill"><input type="checkbox" id="topOnly"> Top level only</label>
       </div>
+      <div class="field">
+        <span class="lbl">&nbsp;</span>
+        <label class="chk" title="The game has a hidden Rare category that its website does not show. This list is collected by players as they find them."><input type="checkbox" id="rareOnly"> <span class="rareb">★ Rare only</span> <small id="rareN" class="muted"></small></label>
+      </div>
     </div>
     <div class="chips" id="chips" aria-live="polite"></div>
     <div class="notice" id="notice" role="status" hidden></div>
@@ -198,11 +205,12 @@ footer p{margin:6px 0}
 </main>
 
 <footer>
-  <p><b>Unofficial fan tool.</b> Pokémon data and pictures come from the <a href="https://sovereignro.com/?module=pokedex" target="_blank" rel="noopener">Sovereign RO Pokédex</a>; pictures are loaded straight from their site. Data is a snapshot (see date at the top) and can go out of date when the server changes — run <code>scripts/update_data.py</code> to refresh.</p>
+  <p><b>Unofficial fan tool.</b> Pokémon data and pictures come from the <a href="https://sovereignro.com/?module=pokedex" target="_blank" rel="noopener">Sovereign RO Pokédex</a>; pictures are loaded straight from their site. The <b>★ Rare</b> category is hidden in the game and not shown by its website, so that list is collected by players as they find them and is incomplete. Data is a snapshot (see date at the top) and can go out of date when the server changes — run <code>scripts/update_data.py</code> to refresh.</p>
   <p>Skill tags (AOE / Single / Support) are approximate. Whether a skill hits an area comes from the rAthena Renewal skill database; how hard it hits depends on this server and the Pokémon's own stats, which this page does not show.</p>
 </footer>
 
 <script src="data.js"></script>
+<script src="rare.js"></script>
 <script>
 (function(){
 'use strict';
@@ -224,9 +232,12 @@ const catOf = s => SKILL_CAT[s] || 'single';
 /* ---------- derived data ---------- */
 const BALL_ORDER = ['Poke Ball','Great Ball','Ultra Ball','Master Ball','Beast Ball'];
 const BALL_CLASS = {'Poke Ball':'b-poke','Great Ball':'b-great','Ultra Ball':'b-ultra','Master Ball':'b-master','Beast Ball':'b-beast'};
+const RARE_SET = new Set(window.RARE || []);
+const RARE_COUNT = MONS.filter(m => RARE_SET.has(m.name)).length;
 MONS.forEach(m => {
   m.types = m.type.split('/');
   m.lname = m.name.toLowerCase();
+  m.rare = RARE_SET.has(m.name);
 });
 const SKILLS = {}; // name -> {count, max, levels}
 MONS.forEach(m => { const seen=new Set(); m.moves.forEach(x=>{
@@ -241,7 +252,7 @@ const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, q:'', type:'', balls:new Set(BALL_ORDER), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, rare:false, q:'', type:'', balls:new Set(BALL_ORDER), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -259,6 +270,7 @@ function saveHash(){
   if(S.min>1) p.set('min', S.min);
   if(S.max<MAX_LV) p.set('max', S.max);
   if(S.top) p.set('top','1');
+  if(S.rare) p.set('rare','1');
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
   if(S.balls.size!==BALL_ORDER.length) p.set('b', [...S.balls].join('|'));
@@ -275,6 +287,7 @@ function loadHash(){
   if(p.get('min')) d.min = Math.min(MAX_LV, Math.max(1, +p.get('min')||1));
   if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
   d.top = p.get('top')==='1';
+  d.rare = p.get('rare')==='1';
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
   if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
@@ -303,6 +316,7 @@ function run(st){
   for(const m of MONS){
     if(!st.balls.has(m.ball)) continue;
     if(st.type && !m.types.includes(st.type)) continue;
+    if(st.rare && !m.rare) continue;
     if(q){ const num = q.replace(/^#/,''); if(!(m.lname.includes(q) || (/^\d+$/.test(num) && String(m.dex)===String(+num)))) continue; }
     const a = analyse(m, st);
     if(!a.ok) continue;
@@ -353,7 +367,7 @@ function card(r){
     <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onload="this.style.opacity=1" onerror="this.style.visibility='hidden'"></div>
     <div class="info">
       <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span></div>
-      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span></div>
+      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.rare?'<span class="rareb badge" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}</div>
       <div class="how">${esc(m.how)}</div>
       <ul class="moves">${moves}</ul>
     </div>
@@ -372,6 +386,7 @@ function explain(){
     const n = run(cl({q:''})).length;
     if(n) out.push({act:'q', text:`${n} Pokémon match without the name box text.`, btn:'Clear name box'});
   }
+  if(S.rare){ const n = run(cl({rare:false})).length; if(n) out.push({act:'rare', text:`${n} Pokémon match if non-Rare Pokémon are included (only ${RARE_COUNT} Pokémon are marked Rare so far).`, btn:'Include non-Rare'}); }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
   if(S.balls.size<BALL_ORDER.length){
     const r = run(cl({balls:new Set(BALL_ORDER)}));
@@ -391,6 +406,7 @@ function render(){
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
   if(S.skills.length && S.top) af.push('top level only');
   if(S.q.trim()) af.push(`name “${esc(S.q.trim())}”`);
+  if(S.rare) af.push('rare only');
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
   $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '');
@@ -415,7 +431,7 @@ function renderChips(){
 }
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
-  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top;
+  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; $('rareOnly').checked = S.rare;
   $('q').value = S.q; $('type').value = S.type; $('sort').value = S.sort;
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
@@ -460,6 +476,7 @@ function moveSel(d){
 }
 
 function buildStatic(){
+  $('rareN').textContent = `(${RARE_COUNT} known)`;
   $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
   const lvOpts = Array.from({length:MAX_LV},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
   $('minLv').innerHTML = lvOpts; $('maxLv').innerHTML = lvOpts;
@@ -494,6 +511,7 @@ function bind(){
     if(a==='lv'){ S.min=1; S.max=MAX_LV; S.top=false; }
     else if(a==='q'){ S.q=''; }
     else if(a==='qskill'){ S.q=''; addSkill(b.dataset.sk); return; }
+    else if(a==='rare'){ S.rare=false; }
     else if(a==='type'){ S.type=''; }
     else if(a==='balls'){ S.balls=new Set(BALL_ORDER); }
     else if(a==='any'){ S.mode='any'; }
@@ -504,6 +522,7 @@ function bind(){
   $('modeAny').onclick = ()=>{ S.mode='any'; S.shown=PAGE; render(); };
   $('minLv').onchange = e=>{ S.min=+e.target.value; if(S.max<S.min) S.max=S.min; S.shown=PAGE; render(); };
   $('maxLv').onchange = e=>{ S.max=+e.target.value; if(S.min>S.max) S.min=S.max; S.shown=PAGE; render(); };
+  $('rareOnly').onchange = e=>{ S.rare=e.target.checked; S.shown=PAGE; render(); };
   $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
   $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };
