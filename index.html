@@ -88,6 +88,10 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .b-ultra{background:#4d4318;color:#ffe27a;border-color:#7d6c24}
 .b-master{background:#3b1f55;color:#d9a8ff;border-color:#62338f}
 .b-beast{background:#1d4a46;color:#7ff0e0;border-color:#2e7a73}
+.tier-legend{background:#1f3b5a;color:#8fd0ff;border-color:#2f6a9e}
+.tier-legendplus{background:#3a2a5e;color:#cdb0ff;border-color:#6a49b0}
+.tier-mythos{background:#5a1f3f;color:#ff9ad0;border-color:#a03a78}
+.tier-rare{background:#4a3a0e;color:#ffd24d;border-color:#8a6d1a}
 .how{font-size:12px;color:var(--muted);margin-bottom:6px}
 .moves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
 .moves li{padding:4px 8px;border-radius:6px;font-size:13px}
@@ -168,7 +172,7 @@ footer p{margin:6px 0}
   </section>
 
   <details class="panel filt" id="moreFilters">
-    <summary>Pokémon filters: name, type, ball, rare <span class="sumhint" id="moreHint"></span></summary>
+    <summary>Pokémon filters: name, type, ball, rarity <span class="sumhint" id="moreHint"></span></summary>
     <div class="row" style="margin-top:12px">
       <div class="field">
         <label for="q">Pokémon name or #</label>
@@ -183,8 +187,9 @@ footer p{margin:6px 0}
         <div class="balls" id="balls"></div>
       </div>
       <div class="field">
-        <span class="lbl">Category</span>
-        <label class="chk" title="The game has a hidden Rare category that its website does not show. This list is collected by players as they find them."><input type="checkbox" id="rareOnly"> <span class="rareb">★ Rare only</span> <small id="rareN" class="muted"></small></label>
+        <span class="lbl">Rarity <small class="muted">(tick any; none = all)</small></span>
+        <div class="balls" id="tiers"></div>
+        <small class="muted" id="rareN"></small>
       </div>
     </div>
   </details>
@@ -199,6 +204,7 @@ footer p{margin:6px 0}
         <option value="level">Skill level</option>
         <option value="count">Number of matching skills</option>
         <option value="ball">Ball (rarest first)</option>
+        <option value="tier">Rarity (highest first)</option>
       </select>
       <button type="button" class="btn" id="dir" title="Toggle ascending / descending" aria-label="Toggle sort direction">↑ Asc</button>
       <button type="button" class="btn" id="reset">Reset all</button>
@@ -248,7 +254,13 @@ MONS.forEach(m => {
   m.types = m.type.split('/');
   m.lname = m.name.toLowerCase();
   m.rare = RARE_SET.has(m.name);
+  /* the game's rarity ladder follows the number of moves: 4 = Legend, 5 = Legend+, 6 = Mythos */
+  m.tier = m.moves.length>=6 ? 'mythos' : m.moves.length===5 ? 'legendplus' : m.moves.length===4 ? 'legend' : m.rare ? 'rare' : 'common';
 });
+const TIERS = [['rare','★ Rare'],['legend','Legend'],['legendplus','Legend+'],['mythos','Mythos']];
+const TIER_LABEL = {rare:'★ Rare', legend:'Legend', legendplus:'Legend+', mythos:'Mythos'};
+const TIER_RANK = {common:0, rare:1, legend:2, legendplus:3, mythos:4};
+const TIER_COUNT = {}; TIERS.forEach(([k])=>TIER_COUNT[k]=MONS.filter(m=>m.tier===k).length);
 /* evolution lines: earlier forms (anc, oldest first) and later forms (desc) of every Pokémon */
 const byName = {}; MONS.forEach(m => byName[m.name] = m);
 const KIDS = {}, DADS = {};
@@ -279,7 +291,7 @@ const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, rare:false, q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, tiers:new Set(), q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -297,7 +309,7 @@ function saveHash(){
   if(S.min>1) p.set('min', S.min);
   if(S.max<MAX_LV) p.set('max', S.max);
   if(S.top) p.set('top','1');
-  if(S.rare) p.set('rare','1');
+  if(S.tiers.size) p.set('r', [...S.tiers].join('|'));
   if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
@@ -315,12 +327,13 @@ function loadHash(){
   if(p.get('min')) d.min = Math.min(MAX_LV, Math.max(1, +p.get('min')||1));
   if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
   d.top = p.get('top')==='1';
-  d.rare = p.get('rare')==='1';
+  if(p.get('r')) d.tiers = new Set(p.get('r').split('|').filter(t=>TIER_LABEL[t]));
+  else if(p.get('rare')==='1') d.tiers = new Set(['rare']);
   if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
   if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
-  if(['dex','name','level','count','ball'].includes(p.get('o'))) d.sort = p.get('o');
+  if(['dex','name','level','count','ball','tier'].includes(p.get('o'))) d.sort = p.get('o');
   d.desc = p.get('d')==='1';
   S = d;
 }
@@ -345,7 +358,7 @@ function run(st){
   for(const m of MONS){
     if(!st.balls.has(m.ball)) continue;
     if(st.type && !m.types.includes(st.type)) continue;
-    if(st.rare && !m.rare) continue;
+    if(st.tiers.size && !st.tiers.has(m.tier)) continue;
     if(q){ const num = q.replace(/^#/,''); if(!(m.lname.includes(q) || (/^\d+$/.test(num) && String(m.dex)===String(+num)))) continue; }
     const a = analyse(m, st);
     if(!a.ok) continue;
@@ -357,10 +370,11 @@ function run(st){
     name:  (x,y)=> x.m.name.localeCompare(y.m.name),
     level: (x,y)=> (x.a.best-y.a.best) || (x.m.dex-y.m.dex),
     count: (x,y)=> (x.a.n-y.a.n) || (x.a.best-y.a.best) || (x.m.dex-y.m.dex),
+    tier:  (x,y)=> (TIER_RANK[x.m.tier]-TIER_RANK[y.m.tier]) || (BALL_ORDER.indexOf(x.m.ball)-BALL_ORDER.indexOf(y.m.ball)) || (x.m.dex-y.m.dex),
     ball:  (x,y)=> (BALL_ORDER.indexOf(x.m.ball)-BALL_ORDER.indexOf(y.m.ball)) || (x.m.dex-y.m.dex)
   }[st.sort];
   // "Skill level" and "matching skills" read naturally high -> low, so flip the arrow meaning for them
-  const flip = (st.sort==='level'||st.sort==='count'||st.sort==='ball') ? -1 : 1;
+  const flip = (st.sort==='level'||st.sort==='count'||st.sort==='ball'||st.sort==='tier') ? -1 : 1;
   out.sort((x,y)=> cmp(x,y)*dir*flip);
   return out;
 }
@@ -400,7 +414,7 @@ function card(r){
     <div class="info">
       ${relNote}
       <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span>${evoBtn}</div>
-      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.rare?'<span class="rareb badge" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}</div>
+      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.tier==='rare'?'<span class="ball tier-rare" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}${TIER_LABEL[m.tier]&&m.tier!=='rare'?`<span class="ball tier-${m.tier}" title="${m.moves.length} moves">${TIER_LABEL[m.tier]}</span>`:''}</div>
       <div class="how">${esc(m.how)}</div>
       <ul class="moves">${moves}</ul>
     </div>
@@ -419,7 +433,7 @@ function explain(){
     const n = run(cl({q:''})).length;
     if(n) out.push({act:'q', text:`${n} Pokémon match without the name box text.`, btn:'Clear name box'});
   }
-  if(S.rare){ const n = run(cl({rare:false})).length; if(n) out.push({act:'rare', text:`${n} Pokémon match if non-Rare Pokémon are included (only ${RARE_COUNT} Pokémon are marked Rare so far).`, btn:'Include non-Rare'}); }
+  if(S.tiers.size){ const n = run(cl({tiers:new Set()})).length; if(n) out.push({act:'tiers', text:`${n} Pokémon match with every rarity${S.tiers.has('rare')?` (only ${RARE_COUNT} Pokémon are marked Rare so far)`:''}.`, btn:'Include all rarities'}); }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
   if(S.balls.size<BALL_ORDER.length){
     const r = run(cl({balls:new Set(BALL_ORDER)}));
@@ -456,7 +470,7 @@ function render(){
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
   if(S.skills.length && S.top) af.push('top level only');
   if(S.q.trim()) af.push(`name “${esc(S.q.trim())}”`);
-  if(S.rare) af.push('rare only');
+  if(S.tiers.size) af.push(`rarity: ${TIERS.filter(([k])=>S.tiers.has(k)).map(([,l])=>esc(l)).join(', ')}`);
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
   $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '') + (view.extra ? ` <span class="afl">· +${view.extra} from evolution lines</span>` : '');
@@ -481,12 +495,12 @@ function renderChips(){
 }
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
-  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; $('rareOnly').checked = S.rare;
+  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
   $('q').value = S.q; $('type').value = S.type; $('sort').value = S.sort;
-  const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball');
+  const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball'||S.sort==='tier');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
   document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
-  const extra = !!(S.q || S.type || S.rare || S.balls.size<BALL_ORDER.length);
+  const extra = !!(S.q || S.type || S.tiers.size || S.balls.size<BALL_ORDER.length);
   $('moreHint').textContent = extra ? '· active' : '';
 }
 function addSkill(s){
@@ -526,7 +540,8 @@ function moveSel(d){
 }
 
 function buildStatic(){
-  $('rareN').textContent = `(${RARE_COUNT} known)`;
+  $('rareN').textContent = `Legend = 4 moves, Legend+ = 5, Mythos = 6. Rare is player-collected (${RARE_COUNT} known so far).`;
+  $('tiers').innerHTML = TIERS.map(([k,l])=>`<label class="chk"><input type="checkbox" value="${k}"> <span class="ball tier-${k}">${l}</span> <small class="muted">${TIER_COUNT[k]}</small></label>`).join('');
   $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
   const lvOpts = Array.from({length:MAX_LV},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
   $('minLv').innerHTML = lvOpts; $('maxLv').innerHTML = lvOpts;
@@ -568,7 +583,7 @@ function bind(){
     if(a==='lv'){ S.min=1; S.max=MAX_LV; S.top=false; }
     else if(a==='q'){ S.q=''; }
     else if(a==='qskill'){ S.q=''; addSkill(b.dataset.sk); return; }
-    else if(a==='rare'){ S.rare=false; }
+    else if(a==='tiers'){ S.tiers=new Set(); }
     else if(a==='type'){ S.type=''; }
     else if(a==='balls'){ S.balls=new Set(BALL_ORDER); }
     else if(a==='any'){ S.mode='any'; }
@@ -579,7 +594,7 @@ function bind(){
   $('modeAny').onclick = ()=>{ S.mode='any'; S.shown=PAGE; render(); };
   $('minLv').onchange = e=>{ S.min=+e.target.value; if(S.max<S.min) S.max=S.min; S.shown=PAGE; render(); };
   $('maxLv').onchange = e=>{ S.max=+e.target.value; if(S.min>S.max) S.min=S.max; S.shown=PAGE; render(); };
-  $('rareOnly').onchange = e=>{ S.rare=e.target.checked; S.shown=PAGE; render(); };
+  $('tiers').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.tiers.add(v) : S.tiers.delete(v); S.shown=PAGE; render(); });
   $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
   $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };
@@ -600,7 +615,7 @@ function bind(){
 }
 
 buildStatic(); loadHash(); bind();
-$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.rare || S.balls.size<BALL_ORDER.length);
+$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.tiers.size || S.balls.size<BALL_ORDER.length);
 render();
 })();
 </script>
