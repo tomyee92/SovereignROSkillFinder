@@ -66,6 +66,11 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;min-width:0}
 .card.hit{border-color:#3d5f2c}
+.card.rel{border-style:dashed;border-color:#4a56a0;background:#161a33}
+.relnote{font-size:11px;color:#9fb0ff;margin-bottom:3px;font-weight:600}
+.evo{margin-left:auto;font:inherit;font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #4a56a0;background:#252b52;color:#c9d0ff;cursor:pointer}
+.evo:hover{border-color:var(--accent2);color:#fff}
+.evo[aria-expanded=true]{background:#2c3466;color:#fff}
 .pic{flex:0 0 84px;height:84px;background:var(--panel2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .pic img{width:80px;height:80px;image-rendering:auto;object-fit:contain;opacity:0;transition:opacity .25s}
 .info{min-width:0;flex:1}
@@ -244,6 +249,23 @@ MONS.forEach(m => {
   m.lname = m.name.toLowerCase();
   m.rare = RARE_SET.has(m.name);
 });
+/* evolution lines: earlier forms (anc, oldest first) and later forms (desc) of every Pokémon */
+const byName = {}; MONS.forEach(m => byName[m.name] = m);
+const KIDS = {}, DADS = {};
+MONS.forEach(m => {
+  if(m.from && byName[m.from]){ DADS[m.name] = m.from; (KIDS[m.from] = KIDS[m.from] || new Set()).add(m.name); }
+  (m.into || []).forEach(c => { if(byName[c]){ (KIDS[m.name] = KIDS[m.name] || new Set()).add(c); if(!DADS[c]) DADS[c] = m.name; } });
+});
+MONS.forEach(m => {
+  const anc = []; let c = m.name, g = 0;
+  while(DADS[c] && g++ < 8){ anc.unshift(DADS[c]); c = DADS[c]; }
+  const desc = [], seen = new Set([m.name]), queue = [m.name];
+  while(queue.length){
+    const x = queue.shift();
+    [...(KIDS[x] || [])].sort((a,b)=>byName[a].dex-byName[b].dex).forEach(k => { if(!seen.has(k)){ seen.add(k); desc.push(k); queue.push(k); } });
+  }
+  m.anc = anc; m.desc = desc; m.evoN = anc.length + desc.length;
+});
 const SKILLS = {}; // name -> {count, max, levels}
 MONS.forEach(m => { const seen=new Set(); m.moves.forEach(x=>{
   const s = SKILLS[x.skill] || (SKILLS[x.skill]={name:x.skill,count:0,max:0,levels:new Set()});
@@ -257,7 +279,7 @@ const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, rare:false, q:'', type:'', balls:new Set(BALL_ORDER), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, rare:false, q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -276,6 +298,7 @@ function saveHash(){
   if(S.max<MAX_LV) p.set('max', S.max);
   if(S.top) p.set('top','1');
   if(S.rare) p.set('rare','1');
+  if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
   if(S.balls.size!==BALL_ORDER.length) p.set('b', [...S.balls].join('|'));
@@ -293,6 +316,7 @@ function loadHash(){
   if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
   d.top = p.get('top')==='1';
   d.rare = p.get('rare')==='1';
+  if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
   if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
@@ -366,12 +390,16 @@ function tag(skill){ const c = CATS[catOf(skill)]; return `<span class="tag ${ca
 function card(r){
   const {m,a} = r;
   const hit = a.hits.size>0;
+  const open = S.expanded.has(m.dex);
+  const evoBtn = m.evoN ? `<button type="button" class="evo" data-evo="${m.dex}" aria-expanded="${open}" title="${esc((m.anc.length?'Earlier forms: '+m.anc.join(', ')+'. ':'')+(m.desc.length?'Later forms: '+m.desc.join(', ')+'.':''))}">${open?'▾ Hide':'▸ Show'} evolution line · ${m.evoN}</button>` : '';
+  const relNote = r.rel ? `<div class="relnote">${esc(r.rel)}</div>` : '';
   const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><div class="l1"><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</div><div class="mv">${esc(x.move)}</div></li>`).join('');
   const types = m.types.map(t=>`<span class="t">${esc(t)}</span>`).join('');
-  return `<article class="card${hit?' hit':''}">
+  return `<article class="card${hit?' hit':''}${r.rel?' rel':''}">
     <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onload="this.style.opacity=1" onerror="this.style.visibility='hidden'"></div>
     <div class="info">
-      <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span></div>
+      ${relNote}
+      <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span>${evoBtn}</div>
       <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.rare?'<span class="rareb badge" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}</div>
       <div class="how">${esc(m.how)}</div>
       <ul class="moves">${moves}</ul>
@@ -400,12 +428,29 @@ function explain(){
   if(S.mode==='all' && S.skills.length>1){ const n = run(cl({mode:'any'})).length; if(n) out.push({act:'any', text:`No Pokémon has all of these skills, but ${n} have at least one.`, btn:'Switch to “Has any”'}); }
   return out;
 }
+/* put the earlier/later forms of every expanded Pokémon right after its card (never twice, filters ignored) */
+function withRelatives(list){
+  const present = new Set(list.map(r=>r.m.dex)), items = []; let extra = 0;
+  const add = r => {
+    items.push(r);
+    if(!S.expanded.has(r.m.dex)) return;
+    const rels = r.m.anc.map(nm=>({m:byName[nm], rel:'Pre-evolution of '+r.m.name})).concat(r.m.desc.map(nm=>({m:byName[nm], rel:'Evolves from '+byName[nm].from})));
+    for(const x of rels){
+      if(present.has(x.m.dex)) continue;
+      present.add(x.m.dex); extra++;
+      add({m:x.m, a:analyse(x.m, S), rel:x.rel});
+    }
+  };
+  list.forEach(add);
+  return {items, extra};
+}
 let current = [], notice = '', keepNotice = false;
 function render(){
   if(!keepNotice) notice = ''; keepNotice = false;
   current = run();
   const total = current.length;
-  const shown = Math.min(S.shown, total);
+  const view = withRelatives(current);
+  const shown = Math.min(S.shown, view.items.length);
   const nz = $('notice');
   const af = []; 
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
@@ -414,8 +459,8 @@ function render(){
   if(S.rare) af.push('rare only');
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
-  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '');
-  $('results').innerHTML = total ? current.slice(0,shown).map(card).join('') : '';
+  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '') + (view.extra ? ` <span class="afl">· +${view.extra} from evolution lines</span>` : '');
+  $('results').innerHTML = total ? view.items.slice(0,shown).map(card).join('') : '';
   if(!total){
     const hints = explain();
     const top = hints.map(h=>`<span class="hint">${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></span>`).join('');
@@ -424,8 +469,8 @@ function render(){
       (hints.length ? hints.map(h=>`<p>${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></p>`).join('') : '<p>Try removing a filter or pressing “Reset all”.</p>') + '</div>';
   }
   if(total){ nz.textContent = notice; nz.hidden = !notice; }
-  $('more').hidden = shown>=total;
-  $('more').textContent = `Show more (${total-shown} left)`;
+  $('more').hidden = shown>=view.items.length;
+  $('more').textContent = `Show more (${view.items.length-shown} left)`;
   renderChips(); syncControls(); saveHash();
 }
 
@@ -510,6 +555,13 @@ function bind(){
   $('skillList').addEventListener('mousedown', e=>{ const li=e.target.closest('li[data-skill]'); if(li){ e.preventDefault(); addSkill(li.dataset.skill); } });
   document.addEventListener('click', e=>{ if(!e.target.closest('.picker')) closeList(); });
   $('chips').addEventListener('click', e=>{ const b=e.target.closest('[data-rm]'); if(b) removeSkill(b.dataset.rm); });
+  document.addEventListener('click', e=>{
+    const eb = e.target.closest('[data-evo]'); if(!eb) return;
+    const dex = +eb.dataset.evo;
+    S.expanded.has(dex) ? S.expanded.delete(dex) : S.expanded.add(dex);
+    render();
+    const nb = document.querySelector(`[data-evo="${dex}"]`); if(nb) nb.focus({preventScroll:true});
+  });
   document.addEventListener('click', e=>{
     const b = e.target.closest('[data-act]'); if(!b) return;
     const a = b.dataset.act; S.shown = PAGE;

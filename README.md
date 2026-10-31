@@ -11,6 +11,7 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - Filter by name or Pokédex #, type and ball.
 - Sort by Pokédex #, name, skill level, number of matching skills, or ball rarity; ascending/descending.
 - **★ Rare** category: the game has a hidden Rare category that its website does not show, so the list is collected by players (`rare.js`). Tick **Rare only** to see them; each one also gets a ★ Rare badge.
+- **Evolution lines:** every Pokémon that evolves (or evolved) has a small "Show evolution line" button. Click it to add its earlier and later forms right after the card (shown even if your filters would hide them, marked with a dashed border). Works on the added cards too.
 - Matching skills are highlighted on each card. **Copy link** shares the exact search (state lives in the URL hash).
 
 ## How it works
