@@ -16,5 +16,8 @@ window.RARE = [
   "Carbink",
   "Luvdisc",
   "Heracross",
+  // reported later
+  "Cursola",
+  "Basculegion",
   // (Gengar was also in the friend's list; already above)
 ];
