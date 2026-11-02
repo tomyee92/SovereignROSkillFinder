@@ -157,6 +157,12 @@ footer p{margin:6px 0}
         </div>
       </div>
       <div class="field">
+        <label for="aoeMin">AOE damage moves</label>
+        <select id="aoeMin" title="Only Pokémon that have at least this many area-damage moves (area status effects like Wide Sleep are not counted)">
+          <option value="0">Any</option><option value="1">At least 1</option><option value="2">At least 2</option><option value="3">All 3 (or more)</option>
+        </select>
+      </div>
+      <div class="field">
         <span class="lbl">&nbsp;</span>
         <label class="chk" title="Only the highest level that exists in the game for each selected skill"><input type="checkbox" id="topOnly"> Top level only</label>
       </div>
@@ -291,7 +297,7 @@ const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, tiers:new Set(), q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, aoe:0, tiers:new Set(), q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -309,6 +315,7 @@ function saveHash(){
   if(S.min>1) p.set('min', S.min);
   if(S.max<MAX_LV) p.set('max', S.max);
   if(S.top) p.set('top','1');
+  if(S.aoe) p.set('a', S.aoe);
   if(S.tiers.size) p.set('r', [...S.tiers].join('|'));
   if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
@@ -327,6 +334,7 @@ function loadHash(){
   if(p.get('min')) d.min = Math.min(MAX_LV, Math.max(1, +p.get('min')||1));
   if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
   d.top = p.get('top')==='1';
+  if(['1','2','3'].includes(p.get('a'))) d.aoe = +p.get('a');
   if(p.get('r')) d.tiers = new Set(p.get('r').split('|').filter(t=>TIER_LABEL[t]));
   else if(p.get('rare')==='1') d.tiers = new Set(['rare']);
   if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
@@ -340,7 +348,12 @@ function loadHash(){
 
 /* ---------- filtering ---------- */
 function analyse(m, st){
-  if(!st.skills.length) return {ok:true, hits:new Set(), best:Math.max(...m.moves.map(x=>x.lv),0), n:0};
+  const aoeIdx = new Set(); m.moves.forEach((x,i)=>{ if(catOf(x.skill)==='aoe') aoeIdx.add(i); });
+  if(st.aoe && aoeIdx.size<st.aoe) return {ok:false};
+  if(!st.skills.length){
+    if(st.aoe){ let b=0; aoeIdx.forEach(i=>{ if(m.moves[i].lv>b) b=m.moves[i].lv; }); return {ok:true, hits:aoeIdx, best:b, n:aoeIdx.size}; }
+    return {ok:true, hits:new Set(), best:Math.max(...m.moves.map(x=>x.lv),0), n:0};
+  }
   const hits = new Set(), got = new Set(); let best = 0;
   m.moves.forEach((x,i)=>{
     if(!st.skills.includes(x.skill)) return;
@@ -433,6 +446,7 @@ function explain(){
     const n = run(cl({q:''})).length;
     if(n) out.push({act:'q', text:`${n} Pokémon match without the name box text.`, btn:'Clear name box'});
   }
+  if(S.aoe){ const n = run(cl({aoe:0})).length; if(n) out.push({act:'aoe', text:`${n} Pokémon match without the AOE damage filter.`, btn:'Clear AOE filter'}); }
   if(S.tiers.size){ const n = run(cl({tiers:new Set()})).length; if(n) out.push({act:'tiers', text:`${n} Pokémon match with every rarity${S.tiers.has('rare')?` (only ${RARE_COUNT} Pokémon are marked Rare so far)`:''}.`, btn:'Include all rarities'}); }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
   if(S.balls.size<BALL_ORDER.length){
@@ -470,6 +484,7 @@ function render(){
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
   if(S.skills.length && S.top) af.push('top level only');
   if(S.q.trim()) af.push(`name “${esc(S.q.trim())}”`);
+  if(S.aoe) af.push(`AOE damage moves ≥ ${S.aoe}`);
   if(S.tiers.size) af.push(`rarity: ${TIERS.filter(([k])=>S.tiers.has(k)).map(([,l])=>esc(l)).join(', ')}`);
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
@@ -495,7 +510,7 @@ function renderChips(){
 }
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
-  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
+  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; $('aoeMin').value = String(S.aoe); document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
   $('q').value = S.q; $('type').value = S.type; $('sort').value = S.sort;
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball'||S.sort==='tier');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
@@ -583,6 +598,7 @@ function bind(){
     if(a==='lv'){ S.min=1; S.max=MAX_LV; S.top=false; }
     else if(a==='q'){ S.q=''; }
     else if(a==='qskill'){ S.q=''; addSkill(b.dataset.sk); return; }
+    else if(a==='aoe'){ S.aoe=0; }
     else if(a==='tiers'){ S.tiers=new Set(); }
     else if(a==='type'){ S.type=''; }
     else if(a==='balls'){ S.balls=new Set(BALL_ORDER); }
@@ -595,6 +611,7 @@ function bind(){
   $('minLv').onchange = e=>{ S.min=+e.target.value; if(S.max<S.min) S.max=S.min; S.shown=PAGE; render(); };
   $('maxLv').onchange = e=>{ S.max=+e.target.value; if(S.min>S.max) S.min=S.max; S.shown=PAGE; render(); };
   $('tiers').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.tiers.add(v) : S.tiers.delete(v); S.shown=PAGE; render(); });
+  $('aoeMin').onchange = e=>{ S.aoe=+e.target.value; S.shown=PAGE; render(); };
   $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
   $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };

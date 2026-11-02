@@ -8,6 +8,7 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - Pick one or more RO skills (autocomplete, or "Browse all skills" grouped by AOE / Single / Support).
 - **Has all / Has any** when several skills are selected.
 - Filter by **skill level** (min–max) or **top level only** per skill.
+- **AOE damage moves** filter: show only Pokémon with at least 1, 2 or 3 area-damage moves (area status effects like Wide Sleep are not counted). Works with every other filter, and highlights the AOE moves on each card.
 - Filter by name or Pokédex #, type and ball.
 - Sort by Pokédex #, name, skill level, number of matching skills, or ball rarity; ascending/descending.
 - **Rarity filter:** tick any of **Legend** (4 moves), **Legend+** (5 moves), **Mythos** (6 moves) and **★ Rare**; ticked ones are combined, none ticked = everything. Legend/Legend+/Mythos are worked out from the number of moves; each card shows its badge, and you can sort by rarity.
