@@ -23,5 +23,6 @@ window.RARE = [
   "Wyrdeer",
   "Blissey",
   "Absol",
+  "Falinks",
   // (Gengar was also in the friend's list; already above)
 ];
