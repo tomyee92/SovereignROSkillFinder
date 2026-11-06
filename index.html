@@ -178,7 +178,7 @@ footer p{margin:6px 0}
   </section>
 
   <details class="panel filt" id="moreFilters">
-    <summary>Pokémon filters: name, type, ball, rarity <span class="sumhint" id="moreHint"></span></summary>
+    <summary>Pokémon filters: name, type, region, ball, rarity <span class="sumhint" id="moreHint"></span></summary>
     <div class="row" style="margin-top:12px">
       <div class="field">
         <label for="q">Pokémon name or #</label>
@@ -187,6 +187,10 @@ footer p{margin:6px 0}
       <div class="field">
         <label for="type">Type</label>
         <select id="type"><option value="">All types</option></select>
+      </div>
+      <div class="field">
+        <label for="region">Region</label>
+        <select id="region"><option value="">All regions</option></select>
       </div>
       <div class="field">
         <span class="lbl">Ball</span>
@@ -293,11 +297,13 @@ MONS.forEach(m => { const seen=new Set(); m.moves.forEach(x=>{
 });});
 const lvText = s => 'Lv ' + [...SKILLS[s].levels].sort((a,b)=>a-b).join(', ');
 const SKILL_NAMES = Object.keys(SKILLS).sort((a,b)=>a.localeCompare(b));
+const REGION_ORDER = ['Kanto','Johto','Hoenn','Sinnoh','Unova','Kalos','Alola','Galar','Hisui','Paldea'];
+const ALL_REGIONS = [...new Set(MONS.map(m=>m.region))].sort((a,b)=>{ const x=REGION_ORDER.indexOf(a), y=REGION_ORDER.indexOf(b); return (x<0?99:x)-(y<0?99:y) || a.localeCompare(b); });
 const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, aoe:0, tiers:new Set(), q:'', type:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, aoe:0, tiers:new Set(), q:'', type:'', region:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -320,6 +326,7 @@ function saveHash(){
   if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
+  if(S.region) p.set('g', S.region);
   if(S.balls.size!==BALL_ORDER.length) p.set('b', [...S.balls].join('|'));
   if(S.sort!=='dex') p.set('o', S.sort);
   if(S.desc) p.set('d','1');
@@ -340,6 +347,7 @@ function loadHash(){
   if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
+  if(ALL_REGIONS.includes(p.get('g'))) d.region = p.get('g');
   if(p.get('b')) d.balls = new Set(p.get('b').split('|').filter(b=>BALL_ORDER.includes(b)));
   if(['dex','name','level','count','ball','tier'].includes(p.get('o'))) d.sort = p.get('o');
   d.desc = p.get('d')==='1';
@@ -371,6 +379,7 @@ function run(st){
   for(const m of MONS){
     if(!st.balls.has(m.ball)) continue;
     if(st.type && !m.types.includes(st.type)) continue;
+    if(st.region && m.region!==st.region) continue;
     if(st.tiers.size && !st.tiers.has(m.tier)) continue;
     if(q){ const num = q.replace(/^#/,''); if(!(m.lname.includes(q) || (/^\d+$/.test(num) && String(m.dex)===String(+num)))) continue; }
     const a = analyse(m, st);
@@ -448,6 +457,7 @@ function explain(){
   }
   if(S.aoe){ const n = run(cl({aoe:0})).length; if(n) out.push({act:'aoe', text:`${n} Pokémon match without the AOE damage filter.`, btn:'Clear AOE filter'}); }
   if(S.tiers.size){ const n = run(cl({tiers:new Set()})).length; if(n) out.push({act:'tiers', text:`${n} Pokémon match with every rarity${S.tiers.has('rare')?` (only ${RARE_COUNT} Pokémon are marked Rare so far)`:''}.`, btn:'Include all rarities'}); }
+  if(S.region){ const n = run(cl({region:''})).length; if(n) out.push({act:'region', text:`${n} Pokémon match with all regions.`, btn:'Clear region'}); }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
   if(S.balls.size<BALL_ORDER.length){
     const r = run(cl({balls:new Set(BALL_ORDER)}));
@@ -487,6 +497,7 @@ function render(){
   if(S.aoe) af.push(`AOE damage moves ≥ ${S.aoe}`);
   if(S.tiers.size) af.push(`rarity: ${TIERS.filter(([k])=>S.tiers.has(k)).map(([,l])=>esc(l)).join(', ')}`);
   if(S.type) af.push(`type ${esc(S.type)}`);
+  if(S.region) af.push(`region ${esc(S.region)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
   $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '') + (view.extra ? ` <span class="afl">· +${view.extra} from evolution lines</span>` : '');
   $('results').innerHTML = total ? view.items.slice(0,shown).map(card).join('') : '';
@@ -511,11 +522,11 @@ function renderChips(){
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
   $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; $('aoeMin').value = String(S.aoe); document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
-  $('q').value = S.q; $('type').value = S.type; $('sort').value = S.sort;
+  $('q').value = S.q; $('type').value = S.type; $('region').value = S.region; $('sort').value = S.sort;
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball'||S.sort==='tier');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
   document.querySelectorAll('#balls input').forEach(i=>i.checked=S.balls.has(i.value));
-  const extra = !!(S.q || S.type || S.tiers.size || S.balls.size<BALL_ORDER.length);
+  const extra = !!(S.q || S.type || S.region || S.tiers.size || S.balls.size<BALL_ORDER.length);
   $('moreHint').textContent = extra ? '· active' : '';
 }
 function addSkill(s){
@@ -560,6 +571,7 @@ function buildStatic(){
   $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
   const lvOpts = Array.from({length:MAX_LV},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
   $('minLv').innerHTML = lvOpts; $('maxLv').innerHTML = lvOpts;
+  $('region').innerHTML += ALL_REGIONS.map(r=>`<option value="${esc(r)}">${esc(r)} (${MONS.filter(m=>m.region===r).length})</option>`).join('');
   $('type').innerHTML += ALL_TYPES.map(t=>`<option>${esc(t)}</option>`).join('');
   $('balls').innerHTML = BALL_ORDER.map(b=>`<label class="chk"><input type="checkbox" value="${b}" checked> <span class="ball ${BALL_CLASS[b]}">${b}</span></label>`).join('');
   $('browseBody').innerHTML = Object.entries(CATS).map(([k,c])=>{
@@ -601,6 +613,7 @@ function bind(){
     else if(a==='aoe'){ S.aoe=0; }
     else if(a==='tiers'){ S.tiers=new Set(); }
     else if(a==='type'){ S.type=''; }
+    else if(a==='region'){ S.region=''; }
     else if(a==='balls'){ S.balls=new Set(BALL_ORDER); }
     else if(a==='any'){ S.mode='any'; }
     render();
@@ -614,6 +627,7 @@ function bind(){
   $('aoeMin').onchange = e=>{ S.aoe=+e.target.value; S.shown=PAGE; render(); };
   $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
+  $('region').onchange = e=>{ S.region=e.target.value; S.shown=PAGE; render(); };
   $('type').onchange = e=>{ S.type=e.target.value; S.shown=PAGE; render(); };
   $('balls').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.balls.add(v) : S.balls.delete(v); S.shown=PAGE; render(); });
   $('sort').onchange = e=>{ S.sort=e.target.value; S.desc=false; S.shown=PAGE; render(); };
@@ -632,7 +646,7 @@ function bind(){
 }
 
 buildStatic(); loadHash(); bind();
-$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.tiers.size || S.balls.size<BALL_ORDER.length);
+$('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.region || S.tiers.size || S.balls.size<BALL_ORDER.length);
 render();
 })();
 </script>
