@@ -47,6 +47,9 @@ input[type=text]:focus,select:focus,button:focus-visible,summary:focus-visible{o
 .btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}
 .btn:hover{border-color:var(--accent2)}
 details.browse{margin-top:12px}
+.mixgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
+.presets{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:10px}
+.presets .btn{padding:5px 10px;font-size:13px}
 details.trade>summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .trade h3{margin:14px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
 .trade-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 18px}
@@ -166,18 +169,20 @@ footer p{margin:6px 0}
         </div>
       </div>
       <div class="field">
-        <label for="aoeMin">AOE damage moves</label>
-        <select id="aoeMin" title="Only Pokémon that have at least this many area-damage moves (area status effects like Wide Sleep are not counted)">
-          <option value="0">Any</option><option value="1">At least 1</option><option value="2">At least 2</option><option value="3">All 3 (or more)</option>
-        </select>
-      </div>
-      <div class="field">
         <span class="lbl">&nbsp;</span>
         <label class="chk" title="Only the highest level that exists in the game for each selected skill"><input type="checkbox" id="topOnly"> Top level only</label>
       </div>
     </div>
     <div class="chips" id="chips" aria-live="polite"></div>
     <div class="notice" id="notice" role="status" hidden></div>
+
+    <details class="browse" id="mixBox">
+      <summary>Skill mix: how many AOE / single / buff / debuff moves <span class="sumhint" id="mixHint"></span></summary>
+      <p class="muted small">Each Pokémon has 3 to 6 moves. Choose how many of each kind you want; rows left on “Any” are ignored.</p>
+      <div class="mixgrid" id="mixGrid"></div>
+      <label class="chk"><input type="checkbox" id="mixExact"> Exactly these numbers (otherwise “at least”)</label>
+      <div class="presets"><span class="lbl">Quick picks</span> <span id="mixPresets"></span> <button type="button" class="btn" id="mixClear">Clear mix</button></div>
+    </details>
 
     <details class="browse" id="browse">
       <summary>Browse all skills</summary>
@@ -328,8 +333,20 @@ const ALL_REGIONS = [...new Set(MONS.map(m=>m.region))].sort((a,b)=>{ const x=RE
 const ALL_TYPES = [...new Set(MONS.flatMap(m=>m.types))].sort();
 const MAX_LV = Math.max(...Object.values(SKILLS).map(s=>s.max));
 
+/* ---------- skill mix: how many moves of each kind ---------- */
+const MIXROWS = [
+  ['aoe',    'AOE damage',            ['aoe']],
+  ['single', 'Single-target damage',  ['single']],
+  ['buff',   'Buff / support',        ['support']],
+  ['debuff', 'Debuff (status effect)',['status','aoes']]
+];
+const MIX_PRESETS = [['3 AOE',{aoe:3}], ['2 AOE + 1 single',{aoe:2,single:1}], ['2 AOE + 1 debuff',{aoe:2,debuff:1}], ['2 AOE + 1 buff',{aoe:2,buff:1}]];
+function emptyMix(){ const o = {}; MIXROWS.forEach(([k])=>o[k]=''); return o; }
+const mixActive = st => MIXROWS.some(([k])=>st.mix[k]!=='');
+const mixText = st => MIXROWS.filter(([k])=>st.mix[k]!=='').map(([k,l])=>`${st.mix[k]} ${l}`).join(', ');
+
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, aoe:0, tiers:new Set(), q:'', type:'', region:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, mix:emptyMix(), exact:false, tiers:new Set(), q:'', type:'', region:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -347,7 +364,7 @@ function saveHash(){
   if(S.min>1) p.set('min', S.min);
   if(S.max<MAX_LV) p.set('max', S.max);
   if(S.top) p.set('top','1');
-  if(S.aoe) p.set('a', S.aoe);
+  if(mixActive(S)){ p.set('mx', MIXROWS.filter(([k])=>S.mix[k]!=='').map(([k])=>k+S.mix[k]).join('.')); if(S.exact) p.set('ex','1'); }
   if(S.tiers.size) p.set('r', [...S.tiers].join('|'));
   if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
@@ -367,7 +384,9 @@ function loadHash(){
   if(p.get('min')) d.min = Math.min(MAX_LV, Math.max(1, +p.get('min')||1));
   if(p.get('max')) d.max = Math.min(MAX_LV, Math.max(1, +p.get('max')||MAX_LV));
   d.top = p.get('top')==='1';
-  if(['1','2','3'].includes(p.get('a'))) d.aoe = +p.get('a');
+  if(['1','2','3'].includes(p.get('a'))) d.mix.aoe = p.get('a');   /* older links */
+  if(p.get('mx')) p.get('mx').split('.').forEach(x=>{ const m = /^(aoe|single|buff|debuff)([0-6])$/.exec(x); if(m) d.mix[m[1]] = m[2]; });
+  d.exact = p.get('ex')==='1' && mixActive(d);
   if(p.get('r')) d.tiers = new Set(p.get('r').split('|').filter(t=>TIER_LABEL[t]));
   else if(p.get('rare')==='1') d.tiers = new Set(['rare']);
   if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
@@ -382,10 +401,20 @@ function loadHash(){
 
 /* ---------- filtering ---------- */
 function analyse(m, st){
-  const aoeIdx = new Set(); m.moves.forEach((x,i)=>{ if(catOf(x.skill)==='aoe') aoeIdx.add(i); });
-  if(st.aoe && aoeIdx.size<st.aoe) return {ok:false};
+  let mixIdx = null;
+  if(mixActive(st)){
+    const cats = {}; MIXROWS.forEach(([k])=>cats[k]=new Set());
+    m.moves.forEach((x,i)=>{ const c = catOf(x.skill); MIXROWS.forEach(([k,,cs])=>{ if(cs.includes(c)) cats[k].add(i); }); });
+    mixIdx = new Set();
+    for(const [k] of MIXROWS){
+      const v = st.mix[k]; if(v==='') continue;
+      const c = cats[k].size;
+      if(st.exact ? c!==+v : c<+v) return {ok:false};
+      cats[k].forEach(i=>{ if(+v>0) mixIdx.add(i); });
+    }
+  }
   if(!st.skills.length){
-    if(st.aoe){ let b=0; aoeIdx.forEach(i=>{ if(m.moves[i].lv>b) b=m.moves[i].lv; }); return {ok:true, hits:aoeIdx, best:b, n:aoeIdx.size}; }
+    if(mixIdx && mixIdx.size){ let b=0; mixIdx.forEach(i=>{ if(m.moves[i].lv>b) b=m.moves[i].lv; }); return {ok:true, hits:mixIdx, best:b, n:mixIdx.size}; }
     return {ok:true, hits:new Set(), best:Math.max(...m.moves.map(x=>x.lv),0), n:0};
   }
   const hits = new Set(), got = new Set(); let best = 0;
@@ -481,7 +510,7 @@ function explain(){
     const n = run(cl({q:''})).length;
     if(n) out.push({act:'q', text:`${n} Pokémon match without the name box text.`, btn:'Clear name box'});
   }
-  if(S.aoe){ const n = run(cl({aoe:0})).length; if(n) out.push({act:'aoe', text:`${n} Pokémon match without the AOE damage filter.`, btn:'Clear AOE filter'}); }
+  if(mixActive(S)){ const n = run(cl({mix:emptyMix(), exact:false})).length; if(n) out.push({act:'mix', text:`${n} Pokémon match without the skill mix (${esc(mixText(S))}).`, btn:'Clear skill mix'}); }
   if(S.tiers.size){ const n = run(cl({tiers:new Set()})).length; if(n) out.push({act:'tiers', text:`${n} Pokémon match with every rarity${S.tiers.has('rare')?` (only ${RARE_COUNT} Pokémon are marked Rare so far)`:''}.`, btn:'Include all rarities'}); }
   if(S.region){ const n = run(cl({region:''})).length; if(n) out.push({act:'region', text:`${n} Pokémon match with all regions.`, btn:'Clear region'}); }
   if(S.type){ const n = run(cl({type:''})).length; if(n) out.push({act:'type', text:`${n} Pokémon match with all types.`, btn:'Clear type'}); }
@@ -520,7 +549,7 @@ function render(){
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
   if(S.skills.length && S.top) af.push('top level only');
   if(S.q.trim()) af.push(`name “${esc(S.q.trim())}”`);
-  if(S.aoe) af.push(`AOE damage moves ≥ ${S.aoe}`);
+  if(mixActive(S)) af.push(`mix: ${esc(mixText(S))} (${S.exact?'exactly':'at least'})`);
   if(S.tiers.size) af.push(`rarity: ${TIERS.filter(([k])=>S.tiers.has(k)).map(([,l])=>esc(l)).join(', ')}`);
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.region) af.push(`region ${esc(S.region)}`);
@@ -547,7 +576,7 @@ function renderChips(){
 }
 function syncControls(){
   $('modeAll').setAttribute('aria-pressed', S.mode==='all'); $('modeAny').setAttribute('aria-pressed', S.mode==='any');
-  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; $('aoeMin').value = String(S.aoe); document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
+  $('minLv').value = S.min; $('maxLv').value = S.max; $('topOnly').checked = S.top; MIXROWS.forEach(([k])=>{ $('mix_'+k).value = S.mix[k]; }); $('mixExact').checked = S.exact; $('mixHint').textContent = mixActive(S) ? '· active' : ''; document.querySelectorAll('#tiers input').forEach(i=>i.checked=S.tiers.has(i.value));
   $('q').value = S.q; $('type').value = S.type; $('region').value = S.region; $('sort').value = S.sort;
   const flip = (S.sort==='level'||S.sort==='count'||S.sort==='ball'||S.sort==='tier');
   $('dir').textContent = (S.desc!==flip ? '↓ ' : '↑ ') + (flip ? (S.desc?'Low→High':'High→Low') : (S.desc?'Z→A / 9→1':'A→Z / 1→9'));
@@ -624,6 +653,8 @@ function buildTrade(){
 
 function buildStatic(){
   buildTrade();
+  $('mixGrid').innerHTML = MIXROWS.map(([k,l])=>`<div class="field"><label for="mix_${k}">${esc(l)}</label><select id="mix_${k}" data-mix="${k}"><option value="">Any</option>${[0,1,2,3,4,5,6].map(n=>`<option value="${n}">${n}${n===0?' (none)':''}</option>`).join('')}</select></div>`).join('');
+  $('mixPresets').innerHTML = MIX_PRESETS.map(([l],i)=>`<button type="button" class="btn" data-preset="${i}">${esc(l)}</button>`).join(' ');
   $('rareN').textContent = `Legend = 4 moves, Legend+ = 5, Mythos = 6. Rare is player-collected (${RARE_COUNT} known so far).`;
   $('tiers').innerHTML = TIERS.map(([k,l])=>`<label class="chk"><input type="checkbox" value="${k}"> <span class="ball tier-${k}">${l}</span> <small class="muted">${TIER_COUNT[k]}</small></label>`).join('');
   $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
@@ -668,7 +699,7 @@ function bind(){
     if(a==='lv'){ S.min=1; S.max=MAX_LV; S.top=false; }
     else if(a==='q'){ S.q=''; }
     else if(a==='qskill'){ S.q=''; addSkill(b.dataset.sk); return; }
-    else if(a==='aoe'){ S.aoe=0; }
+    else if(a==='mix'){ S.mix=emptyMix(); S.exact=false; }
     else if(a==='tiers'){ S.tiers=new Set(); }
     else if(a==='type'){ S.type=''; }
     else if(a==='region'){ S.region=''; }
@@ -682,7 +713,10 @@ function bind(){
   $('minLv').onchange = e=>{ S.min=+e.target.value; if(S.max<S.min) S.max=S.min; S.shown=PAGE; render(); };
   $('maxLv').onchange = e=>{ S.max=+e.target.value; if(S.min>S.max) S.min=S.max; S.shown=PAGE; render(); };
   $('tiers').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.tiers.add(v) : S.tiers.delete(v); S.shown=PAGE; render(); });
-  $('aoeMin').onchange = e=>{ S.aoe=+e.target.value; S.shown=PAGE; render(); };
+  $('mixGrid').addEventListener('change', e=>{ const k = e.target.dataset.mix; if(!k) return; S.mix[k]=e.target.value; if(!mixActive(S)) S.exact=false; S.shown=PAGE; render(); });
+  $('mixExact').onchange = e=>{ S.exact=e.target.checked; S.shown=PAGE; render(); };
+  $('mixPresets').addEventListener('click', e=>{ const b=e.target.closest('[data-preset]'); if(!b) return; S.mix=Object.assign(emptyMix(), MIX_PRESETS[+b.dataset.preset][1]); S.mix=Object.fromEntries(Object.entries(S.mix).map(([k,v])=>[k,String(v)])); S.exact=true; S.shown=PAGE; render(); });
+  $('mixClear').onclick = ()=>{ S.mix=emptyMix(); S.exact=false; S.shown=PAGE; render(); };
   $('topOnly').onchange = e=>{ S.top=e.target.checked; S.shown=PAGE; render(); };
   let qt; $('q').addEventListener('input', e=>{ clearTimeout(qt); qt=setTimeout(()=>{ S.q=e.target.value; S.shown=PAGE; render(); },120); });
   $('region').onchange = e=>{ S.region=e.target.value; S.shown=PAGE; render(); };
@@ -704,6 +738,7 @@ function bind(){
 }
 
 buildStatic(); loadHash(); bind();
+$('mixBox').open = mixActive(S);
 $('moreFilters').open = innerWidth >= 760 || !!(S.q || S.type || S.region || S.tiers.size || S.balls.size<BALL_ORDER.length);
 render();
 })();

@@ -8,7 +8,7 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - Pick one or more RO skills (autocomplete, or "Browse all skills" grouped by AOE / Single / Support).
 - **Has all / Has any** when several skills are selected.
 - Filter by **skill level** (min–max) or **top level only** per skill.
-- **AOE damage moves** filter: show only Pokémon with at least 1, 2 or 3 area-damage moves (area status effects like Wide Sleep are not counted). Works with every other filter, and highlights the AOE moves on each card.
+- **Skill mix** filter: choose how many AOE damage, single-target damage, buff/support and debuff (status effect) moves a Pokémon should have, e.g. 3 AOE, or 2 AOE + 1 single, or 2 AOE + 1 debuff. Tick "Exactly" for exact counts, otherwise it means "at least". Quick-pick buttons for the common combinations; the matching moves are highlighted on each card.
 - **Region** filter (Kanto, Johto, Hoenn, … Paldea), listed in game order with the number of Pokémon in each.
 - Filter by name or Pokédex #, type and ball.
 - Sort by Pokédex #, name, skill level, number of matching skills, or ball rarity; ascending/descending.
