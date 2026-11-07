@@ -78,11 +78,30 @@ details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;min-width:0}
 .card.hit{border-color:#3d5f2c}
-.card.rel{border-style:dashed;border-color:#4a56a0;background:#161a33}
-.relnote{font-size:11px;color:#9fb0ff;margin-bottom:3px;font-weight:600}
 .evo{margin-left:auto;font:inherit;font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #4a56a0;background:#252b52;color:#c9d0ff;cursor:pointer}
 .evo:hover{border-color:var(--accent2);color:#fff}
 .evo[aria-expanded=true]{background:#2c3466;color:#fff}
+.evopop{position:absolute;z-index:60;background:#1b2147;border:1px solid #5a67b8;border-radius:14px;box-shadow:0 14px 44px #000d;color:var(--text)}
+.evopop::before{content:'';position:absolute;width:14px;height:14px;background:#1b2147;border:1px solid #5a67b8;transform:rotate(45deg)}
+.evopop[data-side=right]::before{left:-8px;top:calc(var(--ay,30px) - 7px);border-right:0;border-top:0}
+.evopop[data-side=left]::before{right:-8px;top:calc(var(--ay,30px) - 7px);border-left:0;border-bottom:0}
+.evopop[data-side=below]::before{top:-8px;left:calc(var(--ax,30px) - 7px);border-right:0;border-bottom:0}
+.evoin{overflow:auto;padding:10px 12px 12px;border-radius:14px}
+.evohead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.evohead b{font-size:14px}
+.evoclose{font:inherit;font-size:15px;line-height:1;width:26px;height:26px;border-radius:50%;border:1px solid #4a56a0;background:#252b52;color:#c9d0ff;cursor:pointer}
+.evoclose:hover{border-color:var(--accent2);color:#fff}
+.evolbl{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.erow{display:flex;gap:10px;padding:8px;border-radius:10px;background:#141937;border:1px solid var(--line);margin-bottom:6px}
+.erow .pic{width:56px;height:56px;flex:none}
+.erow .pic img{width:56px;height:56px}
+.erow.cur{background:#2a3266;border-color:#7c8cff;align-items:center;font-size:13px}
+.erow .einfo{min-width:0;flex:1}
+.erow .ename{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.erow .ename b{font-size:14px}
+.emoves{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.emoves li{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;padding:2px 6px;border-radius:5px}
+.emoves li.hit{background:var(--hit);box-shadow:inset 3px 0 0 var(--hitline)}
 .pic{flex:0 0 84px;height:84px;background:var(--panel2);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .pic img{width:80px;height:80px;image-rendering:auto;object-fit:contain;opacity:0;transition:opacity .25s}
 .info{min-width:0;flex:1}
@@ -261,6 +280,8 @@ footer p{margin:6px 0}
   <p>Skill tags (AOE / Single / Support) are approximate. Whether a skill hits an area comes from the rAthena Renewal skill database; how hard it hits depends on this server and the Pokémon's own stats, which this page does not show.</p>
 </footer>
 
+<div class="evopop" id="evoPop" role="dialog" hidden></div>
+
 <!--assets-->
 <script>
 // GitHub Pages lets browsers cache files for 10 minutes. A time-bucket query string makes updates show up
@@ -346,7 +367,7 @@ const mixActive = st => MIXROWS.some(([k])=>st.mix[k]!=='');
 const mixText = st => MIXROWS.filter(([k])=>st.mix[k]!=='').map(([k,l])=>`${st.mix[k]} ${l}`).join(', ');
 
 /* ---------- state ---------- */
-const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, mix:emptyMix(), exact:false, tiers:new Set(), q:'', type:'', region:'', balls:new Set(BALL_ORDER), expanded:new Set(), sort:'dex', desc:false, shown:60});
+const DEF = () => ({skills:[], mode:'all', min:1, max:MAX_LV, top:false, mix:emptyMix(), exact:false, tiers:new Set(), q:'', type:'', region:'', balls:new Set(BALL_ORDER), sort:'dex', desc:false, shown:60});
 let S = DEF();
 const PAGE = 60;
 
@@ -366,7 +387,6 @@ function saveHash(){
   if(S.top) p.set('top','1');
   if(mixActive(S)){ p.set('mx', MIXROWS.filter(([k])=>S.mix[k]!=='').map(([k])=>k+S.mix[k]).join('.')); if(S.exact) p.set('ex','1'); }
   if(S.tiers.size) p.set('r', [...S.tiers].join('|'));
-  if(S.expanded.size) p.set('x', [...S.expanded].join(','));
   if(S.q) p.set('q', S.q);
   if(S.type) p.set('t', S.type);
   if(S.region) p.set('g', S.region);
@@ -389,7 +409,6 @@ function loadHash(){
   d.exact = p.get('ex')==='1' && mixActive(d);
   if(p.get('r')) d.tiers = new Set(p.get('r').split('|').filter(t=>TIER_LABEL[t]));
   else if(p.get('rare')==='1') d.tiers = new Set(['rare']);
-  if(p.get('x')) d.expanded = new Set(p.get('x').split(',').map(Number).filter(x=>Number.isInteger(x)&&x>0));
   d.q = p.get('q')||'';
   if(ALL_TYPES.includes(p.get('t'))) d.type = p.get('t');
   if(ALL_REGIONS.includes(p.get('g'))) d.region = p.get('g');
@@ -478,20 +497,22 @@ function skillScore(query, skill){ // 0 = best match, -1 = no match; fuzzy match
 
 /* ---------- rendering ---------- */
 function tag(skill){ const c = CATS[catOf(skill)]; return `<span class="tag ${catOf(skill)}" title="${esc(c.name)}">${esc(c.label)}</span>`; }
+function badges(m){
+  return `<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.tier==='rare'?'<span class="ball tier-rare" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}${TIER_LABEL[m.tier]&&m.tier!=='rare'?`<span class="ball tier-${m.tier}" title="${m.moves.length} moves">${TIER_LABEL[m.tier]}</span>`:''}`;
+}
+const evoLabel = open => (open?'▾ Hide':'▸ Show')+' evolution line';
 function card(r){
   const {m,a} = r;
   const hit = a.hits.size>0;
-  const open = S.expanded.has(m.dex);
-  const evoBtn = m.evoN ? `<button type="button" class="evo" data-evo="${m.dex}" aria-expanded="${open}" title="${esc((m.anc.length?'Earlier forms: '+m.anc.join(', ')+'. ':'')+(m.desc.length?'Later forms: '+m.desc.join(', ')+'.':''))}">${open?'▾ Hide':'▸ Show'} evolution line · ${m.evoN}</button>` : '';
-  const relNote = r.rel ? `<div class="relnote">${esc(r.rel)}</div>` : '';
+  const open = evoOpen===m.dex;
+  const evoBtn = m.evoN ? `<button type="button" class="evo" data-evo="${m.dex}" aria-expanded="${open}" aria-haspopup="dialog" aria-controls="evoPop" title="${esc((m.anc.length?'Earlier forms: '+m.anc.join(', ')+'. ':'')+(m.desc.length?'Later forms: '+m.desc.join(', ')+'.':''))}">${evoLabel(open)} · ${m.evoN}</button>` : '';
   const moves = m.moves.map((x,i)=>`<li class="${a.hits.has(i)?'hit':''}"><div class="l1"><span class="sk">${esc(x.skill)}</span><span class="lv">Lv ${x.lv}</span>${tag(x.skill)}</div><div class="mv">${esc(x.move)}</div></li>`).join('');
   const types = m.types.map(t=>`<span class="t">${esc(t)}</span>`).join('');
-  return `<article class="card${hit?' hit':''}${r.rel?' rel':''}">
+  return `<article class="card${hit?' hit':''}">
     <div class="pic"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" width="80" height="80" src="${imgUrl(m.dex)}" alt="${esc(m.name)}" onload="this.style.opacity=1" onerror="this.style.visibility='hidden'"></div>
     <div class="info">
-      ${relNote}
       <div class="name"><b>${esc(m.name)}</b><span class="dex">#${pad(m.dex)} · ${esc(m.region)}</span>${evoBtn}</div>
-      <div class="meta">${types}<span class="ball ${BALL_CLASS[m.ball]||''}">${esc(m.ball)}</span>${m.tier==='rare'?'<span class="ball tier-rare" title="Rare category (hidden in-game, collected by players)">★ Rare</span>':''}${TIER_LABEL[m.tier]&&m.tier!=='rare'?`<span class="ball tier-${m.tier}" title="${m.moves.length} moves">${TIER_LABEL[m.tier]}</span>`:''}</div>
+      <div class="meta">${types}${badges(m)}</div>
       <div class="how">${esc(m.how)}</div>
       <ul class="moves">${moves}</ul>
     </div>
@@ -521,29 +542,72 @@ function explain(){
   if(S.mode==='all' && S.skills.length>1){ const n = run(cl({mode:'any'})).length; if(n) out.push({act:'any', text:`No Pokémon has all of these skills, but ${n} have at least one.`, btn:'Switch to “Has any”'}); }
   return out;
 }
-/* put the earlier/later forms of every expanded Pokémon right after its card (never twice, filters ignored) */
-function withRelatives(list){
-  const present = new Set(list.map(r=>r.m.dex)), items = []; let extra = 0;
-  const add = r => {
-    items.push(r);
-    if(!S.expanded.has(r.m.dex)) return;
-    const rels = r.m.anc.map(nm=>({m:byName[nm], rel:'Pre-evolution of '+r.m.name})).concat(r.m.desc.map(nm=>({m:byName[nm], rel:'Evolves from '+byName[nm].from})));
-    for(const x of rels){
-      if(present.has(x.m.dex)) continue;
-      present.add(x.m.dex); extra++;
-      add({m:x.m, a:analyse(x.m, S), rel:x.rel});
-    }
+/* ---------- evolution line bubble: a speech bubble beside the card, on top of the other cards ---------- */
+let evoOpen = null;
+const monByDex = {}; MONS.forEach(m => monByDex[m.dex] = m);
+function evoHTML(m){
+  const row = x => {
+    const hits = new Set(); x.moves.forEach((mv,i)=>{ if(S.skills.includes(mv.skill)) hits.add(i); });
+    const mv = x.moves.map((y,i)=>`<li class="${hits.has(i)?'hit':''}"><span class="sk">${esc(y.skill)}</span><span class="lv">Lv ${y.lv}</span>${tag(y.skill)}</li>`).join('');
+    return `<div class="erow"><div class="pic"><img referrerpolicy="no-referrer" width="56" height="56" src="${imgUrl(x.dex)}" alt="${esc(x.name)}" onload="this.style.opacity=1" onerror="this.style.visibility='hidden'"></div>
+      <div class="einfo"><div class="ename"><b>${esc(x.name)}</b><span class="dex">#${pad(x.dex)} · ${esc(x.region)}</span></div>
+      <div class="meta">${x.types.map(t=>`<span class="t">${esc(t)}</span>`).join('')}${badges(x)}</div>
+      <div class="how">${esc(x.how)}</div><ul class="emoves">${mv}</ul></div></div>`;
   };
-  list.forEach(add);
-  return {items, extra};
+  const cur = `<div class="erow cur"><span><b>${esc(m.name)}</b> <span class="muted">· the card you clicked</span></span></div>`;
+  return `<div class="evoin" id="evoIn"><div class="evohead"><b>Evolution line</b><button type="button" class="evoclose" data-evo-close aria-label="Close evolution line">✕</button></div>`
+    + (m.anc.length ? `<div class="evolbl">Evolves from</div>` + m.anc.map(n=>row(byName[n])).join('') : '')
+    + cur
+    + (m.desc.length ? `<div class="evolbl">Evolves into</div>` + m.desc.map(n=>row(byName[n])).join('') : '')
+    + `</div>`;
+}
+function setEvoBtn(b, open){ b.setAttribute('aria-expanded', open); b.textContent = b.textContent.replace(/^.*?evolution line/, evoLabel(open)); }
+function positionEvo(scrollIfNeeded){
+  const pop = $('evoPop');
+  const btn = evoOpen==null ? null : document.querySelector(`[data-evo="${evoOpen}"]`);
+  if(!btn){ evoOpen = null; pop.hidden = true; return; }
+  document.querySelectorAll('.evo[aria-expanded=true]').forEach(b=>{ if(b!==btn) setEvoBtn(b, false); });
+  setEvoBtn(btn, true);
+  const vw = document.documentElement.clientWidth, vh = innerHeight, gap = 14, W = Math.min(340, vw-16);
+  pop.hidden = false; pop.style.width = W+'px';
+  $('evoIn').style.maxHeight = (vh-24)+'px';
+  const H = pop.offsetHeight, cr = btn.closest('.card').getBoundingClientRect(), br = btn.getBoundingClientRect();
+  const side = cr.right+gap+W <= vw-8 ? 'right' : cr.left-gap-W >= 8 ? 'left' : 'below';
+  let left, top;
+  if(side==='below'){
+    left = Math.max(8, Math.min(vw-W-8, br.left+br.width/2-W/2)); top = cr.bottom+gap;
+    pop.style.setProperty('--ax', Math.max(18, Math.min(W-18, br.left+br.width/2-left))+'px');
+  }else{
+    left = side==='right' ? cr.right+gap : cr.left-gap-W;
+    const cy = br.top+br.height/2; top = Math.max(8, Math.min(cy-34, vh-H-8));
+    pop.style.setProperty('--ay', Math.max(18, Math.min(H-18, cy-top))+'px');
+  }
+  pop.dataset.side = side;
+  pop.style.left = (left+scrollX)+'px'; pop.style.top = (top+scrollY)+'px';
+  if(scrollIfNeeded && side==='below'){
+    const over = top+H-(vh-8), room = br.top-8;
+    if(over>0 && room>0) window.scrollBy({top:Math.min(over, room), behavior:'smooth'});
+  }
+}
+function openEvo(dex, focus){
+  const m = monByDex[dex]; if(!m) return;
+  evoOpen = dex;
+  $('evoPop').setAttribute('aria-label', 'Evolution line of '+m.name);
+  $('evoPop').innerHTML = evoHTML(m);
+  positionEvo(true);
+  if(focus) $('evoPop').querySelector('.evoclose').focus({preventScroll:true});
+}
+function closeEvo(returnFocus){
+  const dex = evoOpen; evoOpen = null; $('evoPop').hidden = true;
+  document.querySelectorAll('.evo[aria-expanded=true]').forEach(b=>setEvoBtn(b, false));
+  if(returnFocus && dex!=null){ const b = document.querySelector(`[data-evo="${dex}"]`); if(b) b.focus({preventScroll:true}); }
 }
 let current = [], notice = '', keepNotice = false;
 function render(){
   if(!keepNotice) notice = ''; keepNotice = false;
   current = run();
   const total = current.length;
-  const view = withRelatives(current);
-  const shown = Math.min(S.shown, view.items.length);
+  const shown = Math.min(S.shown, total);
   const nz = $('notice');
   const af = []; 
   if(S.skills.length && (S.min>1||S.max<MAX_LV)) af.push(`level ${S.min}–${S.max}`);
@@ -554,8 +618,8 @@ function render(){
   if(S.type) af.push(`type ${esc(S.type)}`);
   if(S.region) af.push(`region ${esc(S.region)}`);
   if(S.balls.size<BALL_ORDER.length) af.push(`balls: ${BALL_ORDER.filter(b=>S.balls.has(b)).map(b=>esc(b.replace(' Ball',''))).join(', ')||'none'}`);
-  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '') + (view.extra ? ` <span class="afl">· +${view.extra} from evolution lines</span>` : '');
-  $('results').innerHTML = total ? view.items.slice(0,shown).map(card).join('') : '';
+  $('count').innerHTML = `<b>${total}</b> of ${MONS.length} Pokémon` + (S.skills.length ? ` with ${S.mode==='all'&&S.skills.length>1?'all of':''} <b>${S.skills.map(esc).join(S.mode==='all'?' + ':' / ')}</b>` : '') + (af.length ? ` <span class="afl">· filters on: ${af.join(' · ')}</span>` : '');
+  $('results').innerHTML = total ? current.slice(0,shown).map(card).join('') : '';
   if(!total){
     const hints = explain();
     const top = hints.map(h=>`<span class="hint">${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></span>`).join('');
@@ -564,9 +628,10 @@ function render(){
       (hints.length ? hints.map(h=>`<p>${h.text} <button type="button" class="btn" data-act="${h.act}"${h.sk?` data-sk="${esc(h.sk)}"`:''}>${h.btn}</button></p>`).join('') : '<p>Try removing a filter or pressing “Reset all”.</p>') + '</div>';
   }
   if(total){ nz.textContent = notice; nz.hidden = !notice; }
-  $('more').hidden = shown>=view.items.length;
-  $('more').textContent = `Show more (${view.items.length-shown} left)`;
+  $('more').hidden = shown>=total;
+  $('more').textContent = `Show more (${total-shown} left)`;
   renderChips(); syncControls(); saveHash();
+  if(evoOpen!=null){ const m = monByDex[evoOpen]; $('evoPop').innerHTML = evoHTML(m); positionEvo(false); }
 }
 
 /* ---------- controls ---------- */
@@ -687,12 +752,13 @@ function bind(){
   document.addEventListener('click', e=>{ if(!e.target.closest('.picker')) closeList(); });
   $('chips').addEventListener('click', e=>{ const b=e.target.closest('[data-rm]'); if(b) removeSkill(b.dataset.rm); });
   document.addEventListener('click', e=>{
-    const eb = e.target.closest('[data-evo]'); if(!eb) return;
-    const dex = +eb.dataset.evo;
-    S.expanded.has(dex) ? S.expanded.delete(dex) : S.expanded.add(dex);
-    render();
-    const nb = document.querySelector(`[data-evo="${dex}"]`); if(nb) nb.focus({preventScroll:true});
+    if(e.target.closest('[data-evo-close]')){ closeEvo(true); return; }
+    const eb = e.target.closest('[data-evo]');
+    if(eb){ const dex = +eb.dataset.evo; evoOpen===dex ? closeEvo(false) : openEvo(dex, e.detail===0); return; }
+    if(evoOpen!=null && !e.target.closest('#evoPop')) closeEvo(false);
   });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && evoOpen!=null){ closeEvo(true); } });
+  let rt; window.addEventListener('resize', ()=>{ clearTimeout(rt); rt=setTimeout(()=>positionEvo(false),80); });
   document.addEventListener('click', e=>{
     const b = e.target.closest('[data-act]'); if(!b) return;
     const a = b.dataset.act; S.shown = PAGE;
@@ -724,7 +790,7 @@ function bind(){
   $('balls').addEventListener('change', e=>{ const v=e.target.value; e.target.checked ? S.balls.add(v) : S.balls.delete(v); S.shown=PAGE; render(); });
   $('sort').onchange = e=>{ S.sort=e.target.value; S.desc=false; S.shown=PAGE; render(); };
   $('dir').onclick = ()=>{ S.desc=!S.desc; render(); };
-  $('reset').onclick = ()=>{ S=DEF(); render(); };
+  $('reset').onclick = ()=>{ S=DEF(); closeEvo(false); render(); };
   $('more').onclick = ()=>{ S.shown+=PAGE; render(); };
   $('copy').onclick = async ()=>{
     let done = false;
@@ -734,7 +800,7 @@ function bind(){
     $('copy').textContent = done ? 'Copied ✓' : 'Copy failed';
     setTimeout(()=>$('copy').textContent='Copy link',1500);
   };
-  window.addEventListener('hashchange', ()=>{ loadHash(); render(); });
+  window.addEventListener('hashchange', ()=>{ loadHash(); closeEvo(false); render(); });
 }
 
 buildStatic(); loadHash(); bind();
