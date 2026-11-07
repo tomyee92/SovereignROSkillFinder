@@ -15,6 +15,7 @@ Search the [Sovereign RO Pokédex](https://sovereignro.com/?module=pokedex) by t
 - **Rarity filter:** tick any of **Legend** (4 moves), **Legend+** (5 moves), **Mythos** (6 moves) and **★ Rare**; ticked ones are combined, none ticked = everything. Legend/Legend+/Mythos are worked out from the number of moves; each card shows its badge, and you can sort by rarity.
 - **★ Rare** is the game's hidden category, which its website does not show, so the list is collected by players (`rare.js`).
 - **Evolution lines:** every Pokémon that evolves (or evolved) has a small "Show evolution line" button. Click it to add its earlier and later forms right after the card (shown even if your filters would hide them, marked with a dashed border). Works on the added cards too.
+- **Exchange guide** (collapsed panel under the filters): the in-game exchange NPC trades. Random trade-ups (20 commons → Rare, 20 Rares → Legendary, 5 Legendaries → Legend+, 2 Legend+ → Ultra Beast, 5 Ultra Beasts → Mythos) with the commons each step costs from scratch, and the "of your choice" trades, which keep the same rarity and only let you pick the Pokémon.
 - Matching skills are highlighted on each card. **Copy link** shares the exact search (state lives in the URL hash).
 
 ## How it works

@@ -47,6 +47,15 @@ input[type=text]:focus,select:focus,button:focus-visible,summary:focus-visible{o
 .btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}
 .btn:hover{border-color:var(--accent2)}
 details.browse{margin-top:12px}
+details.trade>summary{cursor:pointer;color:var(--accent2);font-weight:600}
+.trade h3{margin:14px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.trade-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 18px}
+.tr{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;padding:7px 10px;margin:4px 0;border-radius:8px;background:var(--panel2);border:1px solid var(--line);font-size:14px}
+.tr .need{color:var(--muted);font-size:12px;white-space:nowrap}
+.small{font-size:12px;margin:8px 0 0}
+.g-rare{color:#ffd24d;font-weight:700}.g-legendary{color:#ff6a4d;font-weight:700}.g-legendplus{color:#ff5fb0;font-weight:700}
+.g-beast{color:#3fd6c8;font-weight:700}.g-mythos{color:#c070ff;font-weight:700}.g-shiny{color:#ff7ad9;font-weight:700}
+.g-poke{color:#ff9aa6;font-weight:700}.g-great{color:#8fbcff;font-weight:700}.g-ultra{color:#ffe27a;font-weight:700}
 details.browse summary{cursor:pointer;color:var(--accent2);font-weight:600}
 .grp{margin-top:10px}
 .grp h3{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600}
@@ -202,6 +211,23 @@ footer p{margin:6px 0}
         <small class="muted" id="rareN"></small>
       </div>
     </div>
+  </details>
+
+  <details class="panel trade" id="trade">
+    <summary>Exchange guide: trade-ups and “of your choice” trades <span class="muted">· from the in-game exchange NPC</span></summary>
+    <div class="trade-cols">
+      <div>
+        <h3>Rarity goes up, result is random</h3>
+        <div id="tradeUp"></div>
+        <p class="muted small" id="tradeTotal"></p>
+      </div>
+      <div>
+        <h3>Of your choice: same rarity, you pick which Pokémon</h3>
+        <div id="tradePick"></div>
+        <p class="muted small">These never raise the rarity. They only let you choose the Pokémon. Commons are only Poke, Great and Ultra Ball Pokémon, so a common stays a common and only its ball can change.</p>
+      </div>
+    </div>
+    <p class="muted small">Numbers copied from the exchange NPC menus in the game. They may change if the server updates the exchange.</p>
   </details>
 
   <div class="bar">
@@ -565,7 +591,39 @@ function moveSel(d){
   $('skillList').children[sel].scrollIntoView({block:'nearest'});
 }
 
+/* exchange NPC: the numbers are copied from the game's menus */
+const T = (cls, txt) => `<span class="${cls}">${txt}</span>`;
+const UP_STEPS = [
+  {n:20, give:'commons',      giveCls:'',            get:'Rare',        getCls:'g-rare'},
+  {n:20, give:'Rares',        giveCls:'g-rare',      get:'Legendary',   getCls:'g-legendary'},
+  {n:5,  give:'Legendaries',  giveCls:'g-legendary', get:'Legend+',     getCls:'g-legendplus'},
+  {n:2,  give:'Legend+',      giveCls:'g-legendplus',get:'Ultra Beast', getCls:'g-beast'},
+  {n:5,  give:'Ultra Beasts', giveCls:'g-beast',     get:'MYTHOS',      getCls:'g-mythos'}
+];
+const PICK_TRADES = [
+  [10,'commons',     'a '+T('g-poke','Poke Ball')+' Pokémon of your choice'],
+  [15,'commons',     'a '+T('g-great','Great Ball')+' Pokémon of your choice'],
+  [20,'commons',     'an '+T('g-ultra','Ultra Ball')+' Pokémon of your choice'],
+  [10,'Rares',       'a '+T('g-rare','Rare')+' of your choice'],
+  [5, 'Legendaries', 'a '+T('g-legendary','Legendary')+' of your choice'],
+  [10,'shiny commons','a '+T('g-shiny','Shiny')+' common of your choice'],
+  [10,'shiny Rares', 'a '+T('g-shiny','Shiny')+' '+T('g-rare','Rare')+' of your choice']
+];
+function buildTrade(){
+  let cum = 1;
+  $('tradeUp').innerHTML = UP_STEPS.map(st=>{
+    cum *= st.n;
+    return `<div class="tr"><span>${st.n} ${st.giveCls?T(st.giveCls,st.give):st.give} → a random ${T(st.getCls,st.get)}</span><span class="need">${cum.toLocaleString('en-US')} commons from scratch</span></div>`;
+  }).join('');
+  $('tradeTotal').textContent = `Going all the way from commons to one random Mythos takes ${cum.toLocaleString('en-US')} commons (${(cum/10).toLocaleString('en-US')} days at 10 catches a day, if every catch were a common).`;
+  $('tradePick').innerHTML = PICK_TRADES.map(([n,give,get])=>{
+    const g = give.replace('Rares',T('g-rare','Rares')).replace('Legendaries',T('g-legendary','Legendaries')).replace('shiny',T('g-shiny','shiny'));
+    return `<div class="tr"><span>${n} ${g} → ${get}</span></div>`;
+  }).join('');
+}
+
 function buildStatic(){
+  buildTrade();
   $('rareN').textContent = `Legend = 4 moves, Legend+ = 5, Mythos = 6. Rare is player-collected (${RARE_COUNT} known so far).`;
   $('tiers').innerHTML = TIERS.map(([k,l])=>`<label class="chk"><input type="checkbox" value="${k}"> <span class="ball tier-${k}">${l}</span> <small class="muted">${TIER_COUNT[k]}</small></label>`).join('');
   $('snap').textContent = `Data snapshot ${DATA.meta.updated} · ${DATA.meta.pokemon} Pokémon · ${DATA.meta.skills} skills.`;
